@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App-wide dark, liquid glass look */
+:root {
+  --bg1: 14 14 18;      /* deep charcoal */
+  --bg2: 22 22 30;      /* slate */
+  --card: 255 255 255;  /* white for alpha overlays */
+  --accent: 99 102 241; /* indigo */
+  --accent2: 16 185 129;/* teal */
+}
+
+html, body { height: 100%; }
+body {
+  @apply min-h-screen text-gray-200;
+  background: radial-gradient(1200px 800px at 20% -10%, rgba(99,102,241,.18), transparent 60%),
+              radial-gradient(900px 700px at 120% 10%, rgba(16,185,129,.18), transparent 60%),
+              linear-gradient(to bottom, rgb(var(--bg1)), rgb(var(--bg2)));
+}
+
+/* Reusable glass card */
+.glass {
+  background: rgba(var(--card), .06);
+  border: 1px solid rgba(255,255,255,.09);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(16px);
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium transition;
+}
+.btn-primary {
+  @apply btn bg-indigo-600 hover:bg-indigo-500 text-white;
+}
+.btn-ghost {
+  @apply btn bg-white/5 hover:bg-white/10 text-gray-200;
+}
+
+/* Subtle neon focus */
+*:focus-visible { outline: 2px solid rgba(99,102,241,.55); outline-offset: 2px; }
+
+/* Scrollbars (sidebar) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.08); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.14); }
