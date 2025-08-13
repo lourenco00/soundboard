@@ -1,56 +1,45 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { getAudioContext, getMaster, setCrossfader } from "@/lib/audio";
+import { useEffect, useState } from "react";
+import { getAudioContext, getMaster, setCrossfader, setMasterVolume } from "@/lib/audio";
 
 export default function Mixer() {
   const [masterVol, setMasterVol] = useState(0.9);
   const [xf, setXf] = useState(0.5);
-  const [bpm, setBpm] = useState(120);
-  const ticking = useRef(false);
-  const timer = useRef<number | null>(null);
 
-  useEffect(() => { getMaster().then(m => m.output.gain.value = masterVol); }, []);
-  useEffect(() => { getMaster().then(m => m.output.gain.value = masterVol); }, [masterVol]);
+  // Ensure graph exists on mount, then apply initial values
+  useEffect(() => {
+    getMaster().then(() => {
+      setMasterVolume(masterVol);
+      setCrossfader(xf);
+      // iOS/Chrome autoplay guards
+      try { getAudioContext().resume(); } catch {}
+    });
+  }, []);
+
+  useEffect(() => { setMasterVolume(masterVol); }, [masterVol]);
   useEffect(() => { setCrossfader(xf); }, [xf]);
 
-  function startClick() {
-    if (ticking.current) return;
-    ticking.current = true;
-    const ac = getAudioContext();
-    const click = async () => {
-      if (!ticking.current) return;
-      const buf = await fetch("/sounds/click.wav").then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b.slice(0)));
-      const src = ac.createBufferSource(); src.buffer = buf;
-      const g = ac.createGain(); g.gain.value = 0.6;
-      src.connect(g); g.connect(ac.destination); src.start();
-    };
-    const beat = () => {
-      click();
-      const ms = 60000 / bpm;
-      timer.current = window.setTimeout(beat, ms) as unknown as number;
-    };
-    beat();
-  }
-  function stopClick() {
-    ticking.current = false;
-    if (timer.current) clearTimeout(timer.current);
-  }
-
   return (
-    <div className="glass rounded-2xl p-5 flex flex-wrap items-center gap-4">
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-400">Master</span>
-        <input className="accent-indigo-500" type="range" min={0} max={1} step={0.01} value={masterVol} onChange={(e)=>setMasterVol(parseFloat(e.target.value))}/>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-400">Crossfader A↔B</span>
-        <input className="w-64 accent-indigo-500" type="range" min={0} max={1} step={0.01} value={xf} onChange={(e)=>setXf(parseFloat(e.target.value))}/>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-gray-400">BPM</span>
-        <input className="w-24 bg-white/10 rounded-md px-2 py-1" type="number" value={bpm} onChange={(e)=>setBpm(parseInt(e.target.value||"120"))}/>
-        <button className="btn-ghost rounded-xl" onClick={startClick}>Start Metronome</button>
-        <button className="btn-ghost rounded-xl" onClick={stopClick}>Stop</button>
+    <div className="glass rounded-2xl p-4">
+      <div className="grid grid-cols-12 gap-4 items-center">
+        <div className="col-span-12 md:col-span-6">
+          <div className="text-xs text-gray-400 mb-1">Master</div>
+          <input
+            type="range" min={0} max={1} step={0.01}
+            value={masterVol}
+            onChange={e => setMasterVol(parseFloat(e.target.value))}
+            className="w-full accent-indigo-500"
+          />
+        </div>
+        <div className="col-span-12 md:col-span-6">
+          <div className="text-xs text-gray-400 mb-1">Crossfader (A ↔ B)</div>
+          <input
+            type="range" min={0} max={1} step={0.001}
+            value={xf}
+            onChange={e => setXf(parseFloat(e.target.value))}
+            className="w-full accent-indigo-500"
+          />
+        </div>
       </div>
     </div>
   );

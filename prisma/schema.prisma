@@ -1,16 +1,24 @@
-datasource db { provider = "postgresql"; url = env("DATABASE_URL") }
-generator client { provider = "prisma-client-js" }
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  emailVerifiedAt DateTime?
-  stripeCustId String?  @unique
-  plan         Plan     @default(FREE)
-  samples      Sample[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String              @id @default(cuid())
+  email             String              @unique
+  passwordHash      String
+  emailVerifiedAt   DateTime?
+  stripeCustId      String?             @unique
+  plan              Plan                @default(FREE)
+  samples           Sample[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  VerificationToken VerificationToken[]
 }
 
 model VerificationToken {
@@ -20,16 +28,23 @@ model VerificationToken {
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Sample {
   id        String   @id @default(cuid())
   userId    String
   name      String
-  path      String   // e.g. /uploads/<userId>/<file>
+  path      String // e.g. /uploads/<userId>/<file>
   sizeBytes Int
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
-enum Plan { FREE PRO }
+enum Plan {
+  FREE
+  PRO
+}

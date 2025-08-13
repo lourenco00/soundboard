@@ -1,37 +1,32 @@
-import jwt from "jsonwebtoken";
+// lib/entitlements.ts
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
-type Entitlements = {
-  plan: "FREE" | "PRO";
-  // Could include: customerId, subId, expiresAt, features, etc.
-  exp?: number; // standard JWT expiry
-};
+const COOKIE = "sb_entitlements";
+const SECRET = process.env.AUTH_JWT_SECRET!; // reuse or separate secret
 
-const COOKIE_NAME = "sb_entitlements";
-const secret = process.env.ENTITLEMENTS_JWT_SECRET!;
-
-export function signEntitlements(data: Entitlements, ttlSeconds = 60 * 60 * 24 * 30) {
-  return jwt.sign(data, secret, { expiresIn: ttlSeconds });
+export function signEntitlements(payload: any, maxAgeSeconds: number) {
+  return jwt.sign(payload, SECRET, { expiresIn: maxAgeSeconds });
 }
 
-export function readEntitlements(): Entitlements {
-  const jar = cookies();
-  const token = jar.get(COOKIE_NAME)?.value;
-  if (!token) return { plan: "FREE" };
+export async function readEntitlements() {
+  const store = await cookies();
+  const raw = store.get(COOKIE)?.value;
+  if (!raw) return null;
   try {
-    return jwt.verify(token, secret) as Entitlements;
+    return jwt.verify(raw, SECRET);
   } catch {
-    return { plan: "FREE" };
+    return null;
   }
 }
 
-export function setEntitlementsCookie(value: string) {
-  const jar = cookies();
-  jar.set({
-    name: COOKIE_NAME,
-    value,
+export async function setEntitlementsCookie(token: string) {
+  const store = await cookies();
+  store.set({
+    name: COOKIE,
+    value: token,
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,

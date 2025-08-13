@@ -16,13 +16,13 @@ export default function Pad({
   quantizeMs?: number;
   onDropSample: (key: string, sample: { name: string; src: string }) => void;
   onSoloChange: (key: string, solo: boolean) => void;
-  soloActive: boolean; // true if any pad is in solo
+  soloActive: boolean;
 }) {
   const [vol, setVol] = useState(0.9);
   const [loop, setLoop] = useState(false);
-  const [pan, setPan] = useState(0); // -1..1
+  const [pan, setPan] = useState(0);
   const [filter, setFilter] = useState<{ type: BiquadFilterType; freq: number }>({ type: "lowpass", freq: 20000 });
-  const [send, setSend] = useState(0); // 0..1
+  const [send, setSend] = useState(0);
   const [armed, setArmed] = useState(false);
   const [muted, setMuted] = useState(false);
   const [solo, setSolo] = useState(false);
@@ -48,20 +48,26 @@ export default function Pad({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.key, loop, vol, pan, filter, send, muted, solo, quantizeMs]);
 
-  useEffect(() => {
-    onSoloChange(data.key, solo);
-  }, [solo]);
+  useEffect(() => { onSoloChange(data.key, solo); }, [solo]); // notify parent
 
+  /** Make sure we have the audio element + graph */
   function ensure() {
     if (!data.src) return;
+
+    // --- important: encode spaces & allow CORS so decoding never fails ---
+    const encoded = encodeURI(data.src);
+
     if (!mediaEl.current) {
-      const a = new Audio(data.src);
+      const a = new Audio(encoded);
       a.preload = "auto";
+      a.crossOrigin = "anonymous";      // <— critical for WebAudio graph
       a.loop = loop;
       mediaEl.current = a;
     }
+    mediaEl.current!.src = encoded;     // keep encoded when sample changes
     mediaEl.current!.loop = loop;
 
     const ac = getAudioContext();
@@ -81,7 +87,6 @@ export default function Pad({
       chain.send!.gain.value = send;
 
       getMaster().then(m => {
-        // Deck routing
         const deckNode = deck === "A" ? m.panA : m.panB;
         chain.src!.connect(chain.filt!);
         chain.filt!.connect(chain.pan!);
@@ -104,23 +109,22 @@ export default function Pad({
     c.filt!.frequency.value = filter.freq;
     c.send!.gain.value = send;
   }
-
   useEffect(updateParams, [vol, pan, filter, send, muted, solo, soloActive]);
 
   async function trigger() {
     if (!data.src) return;
     ensure();
     const play = () => {
-      if (!mediaEl.current) return;
-      mediaEl.current.currentTime = 0;
-      mediaEl.current.play();
+      const el = mediaEl.current;
+      if (!el) return;
+      el.currentTime = 0;
+      el.play().catch(() => {/* autoplay or decode hiccup — ignore */});
       setArmed(true);
       setTimeout(() => setArmed(false), 90);
     };
-    if (quantizeMs && quantizeMs > 0) {
+    if (quantizeMs > 0) {
       const now = performance.now();
-      const wait = quantizeMs - (now % quantizeMs);
-      setTimeout(play, wait);
+      setTimeout(play, quantizeMs - (now % quantizeMs));
     } else {
       play();
     }
@@ -134,13 +138,18 @@ export default function Pad({
   return (
     <div
       className={`glass rounded-2xl p-4 transition relative group ${armed ? "ring-2 ring-indigo-500/60" : "ring-1 ring-white/5"}`}
-      onDragOver={(e) => { if (e.dataTransfer.types.includes("text/sample")) e.preventDefault(); }}
+      onDragOver={(e) => {
+        const ok = e.dataTransfer.types.includes("text/sample") || e.dataTransfer.types.includes("application/json");
+        if (ok) e.preventDefault();
+      }}
       onDrop={(e) => {
-        const raw = e.dataTransfer.getData("text/sample");
+        const raw = e.dataTransfer.getData("text/sample") || e.dataTransfer.getData("application/json");
         if (!raw) return;
         const s = JSON.parse(raw) as { id: string; name: string; src: string };
         onDropSample(data.key, { name: s.name, src: s.src });
-        mediaEl.current = null; nodes.current = {};
+        // reset graph so ensure() rebuilds with new element/source
+        mediaEl.current = null;
+        nodes.current = {};
       }}
     >
       <div className="flex items-start justify-between mb-3">
@@ -156,7 +165,7 @@ export default function Pad({
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-2 mb-3">
         <Visualizer analyser={analyser} />
-        <div className="text-[11px] text-gray-400 px-1">{data.src ? data.src.split("/").pop() : "Drop a sample here"}</div>
+        <div className="text-[11px] text-gray-400 px-1">{data.src ? decodeURI(data.src).split("/").pop() : "Drop a sample here"}</div>
       </div>
 
       <div className="grid grid-cols-12 gap-3 items-center">

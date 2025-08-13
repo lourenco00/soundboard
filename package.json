@@ -6,18 +6,26 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:samples": "node scripts/generate-samples-manifest.mjs",
+    "prisma:seed": "node prisma/seed.cjs"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.cjs"
   },
   "dependencies": {
+    "@prisma/client": "^6.14.0",
     "bcrypt": "^6.0.0",
     "cookie": "^1.0.2",
     "formidable": "^3.5.4",
     "jsonwebtoken": "^9.0.2",
     "next": "15.4.6",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "resend": "^6.0.1",
     "stripe": "^18.4.0",
+    "wavesurfer-multitrack": "^0.4.12",
+    "wavesurfer.js": "^7.10.1",
     "zod": "^4.0.17"
   },
   "devDependencies": {
@@ -34,6 +42,7 @@
     "postcss": "^8.5.6",
     "prisma": "^6.14.0",
     "tailwindcss": "^3.4.13",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

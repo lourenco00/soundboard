@@ -1,45 +1,51 @@
+// components/TopBar.tsx
 "use client";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Me = { authenticated: boolean; email?: string; plan?: "FREE"|"PRO" };
-
 export default function TopBar() {
-  const [me,setMe]=useState<Me>({ authenticated:false });
+  const [authed, setAuthed] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [plan, setPlan] = useState<string | null>(null);
 
-  useEffect(()=>{ fetch("/api/me").then(r=>r.json()).then(setMe).catch(()=>{}); }, []);
+  useEffect(() => {
+    fetch("/api/me")
+      .then(r => r.json())
+      .then(d => {
+        setAuthed(!!d?.authenticated);
+        setEmail(d?.email ?? null);
+        setPlan(d?.plan ?? null);
+      })
+      .catch(() => {});
+  }, []);
 
-  async function logout(){ await fetch("/api/auth/logout",{method:"POST"}); location.href="/"; }
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.reload(); // refresh UI to logged-out
+  }
 
   return (
-    <div className="sticky top-0 z-20 backdrop-blur-md bg-black/30 border-b border-white/10">
-      <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-xl bg-indigo-600"></div>
-          <span className="font-semibold">Pro Soundboard</span>
-        </Link>
-        <div className="flex items-center gap-3">
-          <span className="text-sm px-3 py-1 rounded-full bg-white/10 border border-white/10">
-            Plan: <b>{me.plan || "FREE"}</b>
-          </span>
-          {!me.authenticated ? (
-            <>
-              <Link href="/login" className="btn-ghost rounded-xl">Log in</Link>
-              <Link href="/signup" className="btn-primary rounded-xl">Sign up</Link>
-            </>
+    <header className="px-4 py-3 border-b border-white/10 bg-black/20 backdrop-blur-md">
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="font-semibold">Soundboard Lab</div>
+        <div className="flex items-center gap-2">
+          {plan && (
+            <span className="text-xs px-2 py-1 rounded-md bg-white/10">
+              Plan: {plan}
+            </span>
+          )}
+          {authed ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm opacity-80">{email}</span>
+              <button className="btn-ghost rounded-md px-3 py-1" onClick={logout}>Log out</button>
+            </div>
           ) : (
             <>
-              <span className="text-sm text-gray-300">{me.email}</span>
-              <button onClick={logout} className="btn-ghost rounded-xl">Logout</button>
-              {me.plan !== "PRO" && (
-                <form action="/api/create-checkout" method="POST">
-                  <button className="btn-primary rounded-xl">Upgrade to Pro</button>
-                </form>
-              )}
+              <a href="/login" className="btn-ghost rounded-md px-3 py-1">Log in</a>
+              <a href="/signup" className="btn-ghost rounded-md px-3 py-1">Sign up</a>
             </>
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
 }

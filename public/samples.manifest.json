@@ -1,0 +1,581 @@
+{
+  "categories": [
+    {
+      "id": "bass",
+      "name": "Bass",
+      "items": [
+        {
+          "id": "bass/2 Foyer Bass Roll.wav",
+          "name": "Foyer Bass Roll",
+          "src": "/sounds/bass/2 Foyer Bass Roll.wav"
+        },
+        {
+          "id": "bass/1 Foyer Bass Roll Short.wav",
+          "name": "Foyer Bass Roll Short",
+          "src": "/sounds/bass/1 Foyer Bass Roll Short.wav"
+        },
+        {
+          "id": "bass/3 Foyer Double Click.wav",
+          "name": "Foyer Double Click",
+          "src": "/sounds/bass/3 Foyer Double Click.wav"
+        }
+      ]
+    },
+    {
+      "id": "clap",
+      "name": "Clap",
+      "items": [
+        {
+          "id": "clap/CLAP163.wav",
+          "name": "CLAP163",
+          "src": "/sounds/clap/CLAP163.wav"
+        },
+        {
+          "id": "clap/CLAP167.wav",
+          "name": "CLAP167",
+          "src": "/sounds/clap/CLAP167.wav"
+        },
+        {
+          "id": "clap/CLAP190.wav",
+          "name": "CLAP190",
+          "src": "/sounds/clap/CLAP190.wav"
+        },
+        {
+          "id": "clap/CLAP193.wav",
+          "name": "CLAP193",
+          "src": "/sounds/clap/CLAP193.wav"
+        },
+        {
+          "id": "clap/CLAP268.wav",
+          "name": "CLAP268",
+          "src": "/sounds/clap/CLAP268.wav"
+        },
+        {
+          "id": "clap/CLAP34.wav",
+          "name": "CLAP34",
+          "src": "/sounds/clap/CLAP34.wav"
+        },
+        {
+          "id": "clap/CLAP62.wav",
+          "name": "CLAP62",
+          "src": "/sounds/clap/CLAP62.wav"
+        },
+        {
+          "id": "clap/CLAP98.wav",
+          "name": "CLAP98",
+          "src": "/sounds/clap/CLAP98.wav"
+        }
+      ]
+    },
+    {
+      "id": "fx",
+      "name": "Fx",
+      "items": [
+        {
+          "id": "fx/1 Boiling In Dust Clouds A.wav",
+          "name": "Boiling In Dust Clouds A",
+          "src": "/sounds/fx/1 Boiling In Dust Clouds A.wav"
+        },
+        {
+          "id": "fx/10 Boiling In Dust Noisy Guitar Fade.wav",
+          "name": "Boiling In Dust Noisy Guitar Fade",
+          "src": "/sounds/fx/10 Boiling In Dust Noisy Guitar Fade.wav"
+        },
+        {
+          "id": "fx/dd6_hit_01.wav",
+          "name": "Dd6 Hit 01",
+          "src": "/sounds/fx/dd6_hit_01.wav"
+        },
+        {
+          "id": "fx/dd6_hit_02.wav",
+          "name": "Dd6 Hit 02",
+          "src": "/sounds/fx/dd6_hit_02.wav"
+        },
+        {
+          "id": "fx/dd6_hit_03.wav",
+          "name": "Dd6 Hit 03",
+          "src": "/sounds/fx/dd6_hit_03.wav"
+        },
+        {
+          "id": "fx/dd6_hit_04.wav",
+          "name": "Dd6 Hit 04",
+          "src": "/sounds/fx/dd6_hit_04.wav"
+        },
+        {
+          "id": "fx/dd6_hit_05.wav",
+          "name": "Dd6 Hit 05",
+          "src": "/sounds/fx/dd6_hit_05.wav"
+        },
+        {
+          "id": "fx/11 Floating In Credit Fade.wav",
+          "name": "Floating In Credit Fade",
+          "src": "/sounds/fx/11 Floating In Credit Fade.wav"
+        },
+        {
+          "id": "fx/12 Harsh Realm Amp Slap.wav",
+          "name": "Harsh Realm Amp Slap",
+          "src": "/sounds/fx/12 Harsh Realm Amp Slap.wav"
+        },
+        {
+          "id": "fx/13 Harsh Realm Effect 1.wav",
+          "name": "Harsh Realm Effect 1",
+          "src": "/sounds/fx/13 Harsh Realm Effect 1.wav"
+        },
+        {
+          "id": "fx/R - Foley 1.wav",
+          "name": "R Foley 1",
+          "src": "/sounds/fx/R - Foley 1.wav"
+        },
+        {
+          "id": "fx/R - Foley 10.wav",
+          "name": "R Foley 10",
+          "src": "/sounds/fx/R - Foley 10.wav"
+        },
+        {
+          "id": "fx/R - Foley 100.wav",
+          "name": "R Foley 100",
+          "src": "/sounds/fx/R - Foley 100.wav"
+        },
+        {
+          "id": "fx/R - Foley 101.wav",
+          "name": "R Foley 101",
+          "src": "/sounds/fx/R - Foley 101.wav"
+        },
+        {
+          "id": "fx/R - Foley 102.wav",
+          "name": "R Foley 102",
+          "src": "/sounds/fx/R - Foley 102.wav"
+        }
+      ]
+    },
+    {
+      "id": "guitar",
+      "name": "Guitar",
+      "items": [
+        {
+          "id": "guitar/10 Harsh Realm Guitar Noise.wav",
+          "name": "Harsh Realm Guitar Noise",
+          "src": "/sounds/guitar/10 Harsh Realm Guitar Noise.wav"
+        },
+        {
+          "id": "guitar/11 Harsh Realm Guitar Noise Riff.wav",
+          "name": "Harsh Realm Guitar Noise Riff",
+          "src": "/sounds/guitar/11 Harsh Realm Guitar Noise Riff.wav"
+        },
+        {
+          "id": "guitar/1 Pastel Click 1.wav",
+          "name": "Pastel Click 1",
+          "src": "/sounds/guitar/1 Pastel Click 1.wav"
+        }
+      ]
+    },
+    {
+      "id": "hihat",
+      "name": "Hihat",
+      "items": [
+        {
+          "id": "hihat/1 Boiling In Dust Hats 1.wav",
+          "name": "Boiling In Dust Hats 1",
+          "src": "/sounds/hihat/1 Boiling In Dust Hats 1.wav"
+        },
+        {
+          "id": "hihat/2 Boiling In Dust Hats 2.wav",
+          "name": "Boiling In Dust Hats 2",
+          "src": "/sounds/hihat/2 Boiling In Dust Hats 2.wav"
+        },
+        {
+          "id": "hihat/DD5_CH_01.wav",
+          "name": "DD5 CH 01",
+          "src": "/sounds/hihat/DD5_CH_01.wav"
+        },
+        {
+          "id": "hihat/DD5_CH_02.wav",
+          "name": "DD5 CH 02",
+          "src": "/sounds/hihat/DD5_CH_02.wav"
+        },
+        {
+          "id": "hihat/DD5_CH_03.wav",
+          "name": "DD5 CH 03",
+          "src": "/sounds/hihat/DD5_CH_03.wav"
+        },
+        {
+          "id": "hihat/DD5_CH_04.wav",
+          "name": "DD5 CH 04",
+          "src": "/sounds/hihat/DD5_CH_04.wav"
+        },
+        {
+          "id": "hihat/DD5_CH_05.wav",
+          "name": "DD5 CH 05",
+          "src": "/sounds/hihat/DD5_CH_05.wav"
+        },
+        {
+          "id": "hihat/DD5_OH_01.wav",
+          "name": "DD5 OH 01",
+          "src": "/sounds/hihat/DD5_OH_01.wav"
+        },
+        {
+          "id": "hihat/DD5_OH_02.wav",
+          "name": "DD5 OH 02",
+          "src": "/sounds/hihat/DD5_OH_02.wav"
+        },
+        {
+          "id": "hihat/DD5_OH_03.wav",
+          "name": "DD5 OH 03",
+          "src": "/sounds/hihat/DD5_OH_03.wav"
+        },
+        {
+          "id": "hihat/DD5_OH_04.wav",
+          "name": "DD5 OH 04",
+          "src": "/sounds/hihat/DD5_OH_04.wav"
+        },
+        {
+          "id": "hihat/3 Floating In Credit Hat.wav",
+          "name": "Floating In Credit Hat",
+          "src": "/sounds/hihat/3 Floating In Credit Hat.wav"
+        }
+      ]
+    },
+    {
+      "id": "kick",
+      "name": "Kick",
+      "items": [
+        {
+          "id": "kick/DD5_Kick_01.wav",
+          "name": "DD5 Kick 01",
+          "src": "/sounds/kick/DD5_Kick_01.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_02.wav",
+          "name": "DD5 Kick 02",
+          "src": "/sounds/kick/DD5_Kick_02.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_03.wav",
+          "name": "DD5 Kick 03",
+          "src": "/sounds/kick/DD5_Kick_03.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_04.wav",
+          "name": "DD5 Kick 04",
+          "src": "/sounds/kick/DD5_Kick_04.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_05.wav",
+          "name": "DD5 Kick 05",
+          "src": "/sounds/kick/DD5_Kick_05.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_06.wav",
+          "name": "DD5 Kick 06",
+          "src": "/sounds/kick/DD5_Kick_06.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_07.wav",
+          "name": "DD5 Kick 07",
+          "src": "/sounds/kick/DD5_Kick_07.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_08.wav",
+          "name": "DD5 Kick 08",
+          "src": "/sounds/kick/DD5_Kick_08.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_09.wav",
+          "name": "DD5 Kick 09",
+          "src": "/sounds/kick/DD5_Kick_09.wav"
+        },
+        {
+          "id": "kick/DD5_Kick_10.wav",
+          "name": "DD5 Kick 10",
+          "src": "/sounds/kick/DD5_Kick_10.wav"
+        },
+        {
+          "id": "kick/KICK142.wav",
+          "name": "KICK142",
+          "src": "/sounds/kick/KICK142.wav"
+        },
+        {
+          "id": "kick/KICK143.wav",
+          "name": "KICK143",
+          "src": "/sounds/kick/KICK143.wav"
+        },
+        {
+          "id": "kick/KICK144.wav",
+          "name": "KICK144",
+          "src": "/sounds/kick/KICK144.wav"
+        },
+        {
+          "id": "kick/KICK145.wav",
+          "name": "KICK145",
+          "src": "/sounds/kick/KICK145.wav"
+        },
+        {
+          "id": "kick/KICK16.wav",
+          "name": "KICK16",
+          "src": "/sounds/kick/KICK16.wav"
+        },
+        {
+          "id": "kick/KICK161.wav",
+          "name": "KICK161",
+          "src": "/sounds/kick/KICK161.wav"
+        },
+        {
+          "id": "kick/KICK17.wav",
+          "name": "KICK17",
+          "src": "/sounds/kick/KICK17.wav"
+        },
+        {
+          "id": "kick/KICK174.wav",
+          "name": "KICK174",
+          "src": "/sounds/kick/KICK174.wav"
+        },
+        {
+          "id": "kick/KICK175.wav",
+          "name": "KICK175",
+          "src": "/sounds/kick/KICK175.wav"
+        },
+        {
+          "id": "kick/KICK176.wav",
+          "name": "KICK176",
+          "src": "/sounds/kick/KICK176.wav"
+        }
+      ]
+    },
+    {
+      "id": "noise",
+      "name": "Noise",
+      "items": [
+        {
+          "id": "noise/9 Boiling In Dust Guitar Noise.wav",
+          "name": "Boiling In Dust Guitar Noise",
+          "src": "/sounds/noise/9 Boiling In Dust Guitar Noise.wav"
+        },
+        {
+          "id": "noise/8 Boiling In Dust Noisy Guitar 2.wav",
+          "name": "Boiling In Dust Noisy Guitar 2",
+          "src": "/sounds/noise/8 Boiling In Dust Noisy Guitar 2.wav"
+        },
+        {
+          "id": "noise/7 Boiling In Dust Techno Noisy Guitar.wav",
+          "name": "Boiling In Dust Techno Noisy Guitar",
+          "src": "/sounds/noise/7 Boiling In Dust Techno Noisy Guitar.wav"
+        }
+      ]
+    },
+    {
+      "id": "perc",
+      "name": "Perc",
+      "items": [
+        {
+          "id": "perc/DD5_Perc_01.wav",
+          "name": "DD5 Perc 01",
+          "src": "/sounds/perc/DD5_Perc_01.wav"
+        },
+        {
+          "id": "perc/DD5_Perc_02.wav",
+          "name": "DD5 Perc 02",
+          "src": "/sounds/perc/DD5_Perc_02.wav"
+        },
+        {
+          "id": "perc/DD5_Perc_03.wav",
+          "name": "DD5 Perc 03",
+          "src": "/sounds/perc/DD5_Perc_03.wav"
+        },
+        {
+          "id": "perc/DD5_Perc_04.wav",
+          "name": "DD5 Perc 04",
+          "src": "/sounds/perc/DD5_Perc_04.wav"
+        },
+        {
+          "id": "perc/DD5_Perc_05.wav",
+          "name": "DD5 Perc 05",
+          "src": "/sounds/perc/DD5_Perc_05.wav"
+        },
+        {
+          "id": "perc/1 Foyer Drum Machine.wav",
+          "name": "Foyer Drum Machine",
+          "src": "/sounds/perc/1 Foyer Drum Machine.wav"
+        },
+        {
+          "id": "perc/2 Foyer Roll.wav",
+          "name": "Foyer Roll",
+          "src": "/sounds/perc/2 Foyer Roll.wav"
+        },
+        {
+          "id": "perc/5 Harsh Realm MFB Bass Throb.wav",
+          "name": "Harsh Realm MFB Bass Throb",
+          "src": "/sounds/perc/5 Harsh Realm MFB Bass Throb.wav"
+        },
+        {
+          "id": "perc/3 Harsh Realm MFB Blip.wav",
+          "name": "Harsh Realm MFB Blip",
+          "src": "/sounds/perc/3 Harsh Realm MFB Blip.wav"
+        },
+        {
+          "id": "perc/4 Harsh Realm MFB Clap.wav",
+          "name": "Harsh Realm MFB Clap",
+          "src": "/sounds/perc/4 Harsh Realm MFB Clap.wav"
+        }
+      ]
+    },
+    {
+      "id": "snare",
+      "name": "Snare",
+      "items": [
+        {
+          "id": "snare/DD5_Snare_01.wav",
+          "name": "DD5 Snare 01",
+          "src": "/sounds/snare/DD5_Snare_01.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_02.wav",
+          "name": "DD5 Snare 02",
+          "src": "/sounds/snare/DD5_Snare_02.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_03.wav",
+          "name": "DD5 Snare 03",
+          "src": "/sounds/snare/DD5_Snare_03.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_04.wav",
+          "name": "DD5 Snare 04",
+          "src": "/sounds/snare/DD5_Snare_04.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_05.wav",
+          "name": "DD5 Snare 05",
+          "src": "/sounds/snare/DD5_Snare_05.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_06.wav",
+          "name": "DD5 Snare 06",
+          "src": "/sounds/snare/DD5_Snare_06.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_07.wav",
+          "name": "DD5 Snare 07",
+          "src": "/sounds/snare/DD5_Snare_07.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_08.wav",
+          "name": "DD5 Snare 08",
+          "src": "/sounds/snare/DD5_Snare_08.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_09.wav",
+          "name": "DD5 Snare 09",
+          "src": "/sounds/snare/DD5_Snare_09.wav"
+        },
+        {
+          "id": "snare/DD5_Snare_10.wav",
+          "name": "DD5 Snare 10",
+          "src": "/sounds/snare/DD5_Snare_10.wav"
+        },
+        {
+          "id": "snare/SNARE0.wav",
+          "name": "SNARE0",
+          "src": "/sounds/snare/SNARE0.wav"
+        },
+        {
+          "id": "snare/SNARE00.wav",
+          "name": "SNARE00",
+          "src": "/sounds/snare/SNARE00.wav"
+        },
+        {
+          "id": "snare/SNARE000.wav",
+          "name": "SNARE000",
+          "src": "/sounds/snare/SNARE000.wav"
+        },
+        {
+          "id": "snare/SNARE0000.wav",
+          "name": "SNARE0000",
+          "src": "/sounds/snare/SNARE0000.wav"
+        },
+        {
+          "id": "snare/SNARE00000.wav",
+          "name": "SNARE00000",
+          "src": "/sounds/snare/SNARE00000.wav"
+        },
+        {
+          "id": "snare/SNARE1.wav",
+          "name": "SNARE1",
+          "src": "/sounds/snare/SNARE1.wav"
+        },
+        {
+          "id": "snare/SNARE10.wav",
+          "name": "SNARE10",
+          "src": "/sounds/snare/SNARE10.wav"
+        },
+        {
+          "id": "snare/SNARE109.wav",
+          "name": "SNARE109",
+          "src": "/sounds/snare/SNARE109.wav"
+        },
+        {
+          "id": "snare/SNARE11.wav",
+          "name": "SNARE11",
+          "src": "/sounds/snare/SNARE11.wav"
+        },
+        {
+          "id": "snare/SNARE110.wav",
+          "name": "SNARE110",
+          "src": "/sounds/snare/SNARE110.wav"
+        }
+      ]
+    },
+    {
+      "id": "vocals",
+      "name": "Vocals",
+      "items": [
+        {
+          "id": "vocals/10 Boiling In Dust Vox Bike Vision.wav",
+          "name": "Boiling In Dust Vox Bike Vision",
+          "src": "/sounds/vocals/10 Boiling In Dust Vox Bike Vision.wav"
+        },
+        {
+          "id": "vocals/11 Boiling In Dust Vox I Am Here.wav",
+          "name": "Boiling In Dust Vox I Am Here",
+          "src": "/sounds/vocals/11 Boiling In Dust Vox I Am Here.wav"
+        },
+        {
+          "id": "vocals/1 Foyer Cough.wav",
+          "name": "Foyer Cough",
+          "src": "/sounds/vocals/1 Foyer Cough.wav"
+        }
+      ]
+    },
+    {
+      "id": "viral",
+      "name": "Viral",
+      "items": [
+        { "id": "viral/airhorn.mp3",                                      "name": "Airhorn",                          "src": "/sounds/viral/airhorn.mp3" },
+        { "id": "viral/bruh.mp3",                                         "name": "Bruh",                             "src": "/sounds/viral/bruh.mp3" },
+        { "id": "viral/bruh2.mp3",                                        "name": "Bruh 2",                           "src": "/sounds/viral/bruh2.mp3" },
+        { "id": "viral/cricket_chirping.mp3",                             "name": "Cricket Chirping",                 "src": "/sounds/viral/cricket_chirping.mp3" },
+        { "id": "viral/dramatic_hit.mp3",                                 "name": "Dramatic Hit",                     "src": "/sounds/viral/dramatic_hit.mp3" },
+        { "id": "viral/evil_laugh_5.mp3",                                 "name": "Evil Laugh 5",                     "src": "/sounds/viral/evil_laugh_5.mp3" },
+        { "id": "viral/not_happy_ending.mp3",                             "name": "Not Happy Ending",                 "src": "/sounds/viral/not_happy_ending.mp3" },
+        { "id": "viral/oh_my_god.mp3",                                    "name": "Oh My God",                        "src": "/sounds/viral/oh_my_god.mp3" },
+        { "id": "viral/vine_boom.mp3",                                    "name": "Vine Boom",                        "src": "/sounds/viral/vine_boom.mp3" },
+        { "id": "viral/wilhelm_scream.mp3",                               "name": "Wilhelm Scream",                   "src": "/sounds/viral/wilhelm_scream.mp3" },
+
+        { "id": "viral/A-Weird-Male-Oh-My-God-chosic.com_.mp3",           "name": "Oh My God (Male Weird)",           "src": "/sounds/viral/A-Weird-Male-Oh-My-God-chosic.com_.mp3" },
+        { "id": "viral/comedy-rim-shot-sound.flac",                       "name": "Comedy Rim Shot",                  "src": "/sounds/viral/comedy-rim-shot-sound.flac" },
+        { "id": "viral/Explosion-Noise-chosic.com_.mp3",                  "name": "Explosion Noise",                  "src": "/sounds/viral/Explosion-Noise-chosic.com_.mp3" },
+        { "id": "viral/Fart-sound.mp3",                                   "name": "Fart",                             "src": "/sounds/viral/Fart-sound.mp3" },
+        { "id": "viral/french-horn-sounds-horn-fail-wahwah-sound.flac",   "name": "French Horn Fail (Wah-Wah)",       "src": "/sounds/viral/french-horn-sounds-horn-fail-wahwah-sound.flac" },
+        { "id": "viral/Girl-Saying-Disgusted-Oh-My-God-chosic.com_.mp3",  "name": "Oh My God (Girl Disgusted)",       "src": "/sounds/viral/Girl-Saying-Disgusted-Oh-My-God-chosic.com_.mp3" },
+        { "id": "viral/police-siren(chosic.com).mp3",                     "name": "Police Siren",                     "src": "/sounds/viral/police-siren(chosic.com).mp3" },
+        { "id": "viral/Punch-4-chosic.com_.mp3",                          "name": "Punch 4",                          "src": "/sounds/viral/Punch-4-chosic.com_.mp3" },
+        { "id": "viral/record-scratch-sound.flac",                        "name": "Record Scratch",                   "src": "/sounds/viral/record-scratch-sound.flac" },
+        { "id": "viral/retro-boom(chosic.com).mp3",                       "name": "Retro Boom",                       "src": "/sounds/viral/retro-boom(chosic.com).mp3" },
+        { "id": "viral/rim-shot-sound.flac",                              "name": "Rim Shot",                         "src": "/sounds/viral/rim-shot-sound.flac" },
+        { "id": "viral/sound-effects-library-wow-sound-effect-anime-style.mp3", "name": "Wow (Anime Style)",      "src": "/sounds/viral/sound-effects-library-wow-sound-effect-anime-style.mp3" },
+        { "id": "viral/trumpet-sad-chromatic-wah-wah-sound.flac",         "name": "Trumpet Sad Chromatic (Wah-Wah)",  "src": "/sounds/viral/trumpet-sad-chromatic-wah-wah-sound.flac" }
+      ]
+    }
+
+
+  ]
+}

@@ -1,3 +1,4 @@
+// lib/auth.ts
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { prisma } from "./db";
@@ -12,22 +13,40 @@ export function createSessionToken(s: Session, ttl = "30d") {
   return jwt.sign(s, SECRET, { expiresIn: ttl });
 }
 
-export function readSession(): Session | null {
-  const raw = cookies().get(COOKIE)?.value;
-  if (!raw) return null;
-  try { return jwt.verify(raw, SECRET) as Session; } catch { return null; }
+export async function readSession(): Promise<Session | null> {
+  // Next 15: cookies() is async
+  const c = (await cookies()).get(COOKIE)?.value;
+  if (!c) return null;
+  try { return jwt.verify(c, SECRET) as Session; } catch { return null; }
 }
 
 export async function requireUser() {
-  const sess = readSession();
+  const sess = await readSession();
   if (!sess) return null;
   return prisma.user.findUnique({ where: { id: sess.uid } });
 }
 
-export function setSessionCookie(token: string) {
-  cookies().set({
-    name: COOKIE, value: token, httpOnly: true, secure: true,
-    sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
+export async function setSessionCookie(token: string) {
+  (await cookies()).set({
+    name: COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+}
+
+export async function clearSessionCookie() {
+  (await cookies()).set({
+    name: COOKIE,
+    value: "",
+    path: "/",
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 0,
   });
 }
 

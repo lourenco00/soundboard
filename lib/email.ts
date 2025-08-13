@@ -5,7 +5,7 @@ export async function sendVerifyEmail(to: string, link: string) {
   await resend.emails.send({
     from: "Soundboard <no-reply@soundboard.app>",
     to, subject: "Verify your email",
-    html: `<p>Welcome to Pro Soundboard!</p>
+    html: `<p>Welcome to Soundboard Lab!</p>
            <p>Confirm your email to continue: <a href="${link}">${link}</a></p>`,
   });
 }
