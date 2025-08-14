@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import SampleList, { Group } from "@/components/SampleList";
 import StepSequencer from "@/components/StepSequencer";
@@ -9,54 +10,74 @@ import StepSequencer from "@/components/StepSequencer";
 type Beat = any;
 
 export default function SequencerPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
   const [beats, setBeats] = useState<Beat[]>([]);
   const [selected, setSelected] = useState<Beat | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
-  const [isAuthed, setIsAuthed] = useState(false);
-
-  // auth light check (for tabs copy)
-  useEffect(() => {
-    fetch("/api/me").then(r => r.json()).then(d => setIsAuthed(Boolean(d?.authenticated))).catch(()=>{});
-  }, []);
 
   // load saved beats
   useEffect(() => {
     fetch("/api/beats").then(r => r.ok ? r.json() : []).then(setBeats).catch(()=> setBeats([]));
   }, []);
 
-  // sample manifest + my sounds
+  // ---- open beat from URL (?beat=ID)
   useEffect(() => {
-    let mounted = true;
+    const id = sp.get("beat");
+    if (!id) return;
     (async () => {
-      try {
-        const base = await fetch("/samples.manifest.json").then(r => r.json());
-        const cats: Group[] = base.categories || [];
-        const mine = await fetch("/api/my-sounds").then(r => r.ok ? r.json() : []);
-        if (Array.isArray(mine) && mine.length) {
-          cats.unshift({
-            id: "my-beats",
-            name: "My Beats",
-            items: mine.map((s: any) => ({ id: s.id, name: s.name, src: s.src }))
-          });
-        }
-        if (mounted) setGroups(cats);
-      } catch { if (mounted) setGroups([]); }
+      const r = await fetch(`/api/beats/${id}`);
+      if (r.ok) setSelected(await r.json());
     })();
-    return () => { mounted = false; };
-  }, []);
+  }, [sp]);
 
-  async function openBeat(id: string) {
-    const r = await fetch(`/api/beats/${id}`);
-    if (r.ok) setSelected(await r.json());
+  // ---- library with Presets (beats+piano presets) + categories
+  async function loadLibrary() {
+    try {
+      const base = await fetch("/samples.manifest.json").then(r => r.json());
+      const cats: Group[] = base.categories || [];
+
+      const presets = await fetch("/api/presets").then(r => r.ok ? r.json() : { folders: [], items: [] });
+
+      // group presets by folder
+      const byFolder: Record<string, any[]> = {};
+      for (const p of presets.items || []) {
+        const key = p.folder || "(Unsorted)";
+        (byFolder[key] ||= []).push(p);
+      }
+
+      const presetGroups: Group[] = Object.keys(byFolder).sort().map(folderName => ({
+        id: `presets-${folderName}`,
+        name: `Presets / ${folderName}`,
+        items: byFolder[folderName].map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          kind: p.kind,          // "step" | "piano"
+          // no src for presets
+        })),
+      }));
+
+      setGroups([...presetGroups, ...cats]);
+    } catch {
+      setGroups([]);
+    }
   }
+  useEffect(() => { loadLibrary(); }, []);
 
-  async function deleteBeat(id: string) {
-    if (!confirm("Delete this beat?")) return;
-    const r = await fetch(`/api/beats/${id}`, { method: "DELETE" });
+  // click handlers
+  function openBeat(id: string) {
+    router.push(`/sequencer?beat=${encodeURIComponent(id)}`); // keeps page editable
+  }
+  async function deletePreset(kind: "step" | "piano", id: string) {
+    if (!confirm("Delete this preset?")) return;
+    const url = kind === "step" ? `/api/beats/${id}` : `/api/piano-presets/${id}`;
+    const r = await fetch(url, { method: "DELETE" });
     if (r.ok) {
-      setSelected(null);
-      const list = await fetch("/api/beats").then(x => x.json());
-      setBeats(list);
+      if (kind === "step") setBeats(await fetch("/api/beats").then(x => x.json()).catch(()=>[]));
+      loadLibrary();
+      // if we just deleted the open beat, clear it
+      if (selected?.id === id && kind === "step") setSelected(null);
     }
   }
 
@@ -64,18 +85,13 @@ export default function SequencerPage() {
     <main className="min-h-screen">
       <TopBar />
 
-      {/* Top tabs (same register as Pads page) */}
+      {/* Tabs */}
       <div className="mx-auto max-w-7xl px-4 pt-5">
         <div className="glass rounded-2xl p-2 flex items-center gap-3">
           <Link href="/" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">Pads</Link>
           <Link href="/daw" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">DAW</Link>
           <span className="px-3 py-1.5 rounded-lg text-sm bg-white/15 text-white">Step Seq</span>
-          <Link
-            href="/piano"
-            className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10"
-            >
-            Piano
-          </Link>
+          <Link href="/piano" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">Piano</Link>
         </div>
       </div>
 
@@ -85,40 +101,58 @@ export default function SequencerPage() {
           <div className="glass rounded-2xl p-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-semibold">My Beats</h2>
-              <button className="btn-ghost rounded px-2 py-1"
-                onClick={async () => setBeats(await fetch("/api/beats").then(r => r.json()))}>
+              <button className="btn-ghost rounded px-2 py-1" onClick={async () => setBeats(await fetch("/api/beats").then(r => r.json()))}>
                 Refresh
               </button>
             </div>
             <div className="space-y-1">
-              {beats.length === 0 && (
-                <div className="text-xs text-gray-500">No beats yet. Create on the right →</div>
-              )}
+              {beats.length === 0 && <div className="text-xs text-gray-500">No beats yet. Create on the right →</div>}
               {beats.map((b: any) => (
                 <div key={b.id} className="flex items-center justify-between text-sm">
                   <button className="hover:underline" onClick={() => openBeat(b.id)}>{b.name}</button>
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] text-gray-500">{b.bpm}bpm • {b.steps}s</span>
-                    <button className="text-red-400 hover:text-red-500" onClick={() => deleteBeat(b.id)}>✕</button>
+                    <button className="text-red-400 hover:text-red-500" onClick={() => deletePreset("step", b.id)}>✕</button>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Sample Library (draggable) */}
+          {/* Library with Presets (folders) */}
           <div className="glass rounded-2xl p-3">
-            <h3 className="font-semibold mb-2">Library</h3>
-            {/* NOTE: SampleList already renders draggable items.
-               Ensure each item has draggable and sets dataTransfer as JSON:
-               dataTransfer.setData("application/x-sample", JSON.stringify({name, src})); */}
-            <SampleList groups={groups} />
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">Library</h3>
+              <button
+                className="text-[12px] text-gray-300 hover:text-white"
+                onClick={async () => {
+                  const name = prompt("New Preset Folder name:");
+                  if (!name) return;
+                  await fetch("/api/preset-folders", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ name }),
+                  });
+                  loadLibrary();
+                }}
+              >
+                + Folder
+              </button>
+            </div>
+
+            <SampleList
+              groups={groups}
+              onOpenStep={(id) => openBeat(id)}
+              onOpenPiano={(id) => { window.location.href = `/piano?preset=${encodeURIComponent(id)}`; }}
+              onDeletePreset={async (kind, id) => deletePreset(kind as any, id)}
+            />
           </div>
         </aside>
 
-        {/* RIGHT: Sequencer */}
+        {/* RIGHT: Sequencer – key forces remount when selection changes */}
         <section className="col-span-12 lg:col-span-8">
           <StepSequencer
+            key={selected?.id || "new"}               // ← ensures it loads the chosen beat
             initial={selected || undefined}
             onSendToDAW={() => {}}
           />
