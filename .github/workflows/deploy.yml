@@ -39,7 +39,10 @@ jobs:
 
       - name: 🚀 Deploy via rsync
         run: |
-          rsync -avz --delete \
+          ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "rm -rf ${{ secrets.REMOTE_PATH }}/*"
+          rsync -avz \
             -e "ssh -i private_key.pem -p ${{ secrets.DROPLET_PORT }}" \
             .next/ package.json package-lock.json public/ prisma/ scripts/ \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
