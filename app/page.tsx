@@ -154,11 +154,17 @@ export default function Page() {
               <Link href="/sequencer" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">
                 Step Seq
               </Link>
+              <Link
+                href="/piano"
+                className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10"
+              >
+                Piano
+              </Link>
             </>
           ) : (
             <span className="ml-1 text-xs text-gray-400">
               <Link href="/login" className="underline hover:text-gray-300">
-                DAW & Step Seq (log in to access)
+                DAW & Step Seq & Piano (log in to access)
               </Link>
             </span>
           )}

@@ -50,6 +50,13 @@ export default function DawPage() {
           <Link href="/sequencer" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">
                 Step Seq
           </Link>
+          <Link
+            href="/piano"
+            className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10"
+          >
+            Piano
+          </Link>
+
         </div>
       </div>
 

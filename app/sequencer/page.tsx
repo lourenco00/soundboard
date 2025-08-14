@@ -70,6 +70,12 @@ export default function SequencerPage() {
           <Link href="/" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">Pads</Link>
           <Link href="/daw" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">DAW</Link>
           <span className="px-3 py-1.5 rounded-lg text-sm bg-white/15 text-white">Step Seq</span>
+          <Link
+            href="/piano"
+            className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10"
+            >
+            Piano
+          </Link>
         </div>
       </div>
 
