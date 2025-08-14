@@ -24,10 +24,22 @@ type Dragging =
   | {
       kind: "trim-left" | "trim-right";
       clipId: string;
-      startPx: number;   // initial mouse x (px)
-      origStart: number; // original start (sec)
-      origDuration: number; // original duration (sec)
+      startPx: number;     // initial mouse x (px)
+      origStart: number;   // original start (sec)
+      origDuration: number;// original duration (sec)
     };
+
+type ClipboardItem = {
+  name: string;
+  color: string;
+  lane: number;
+  relStart: number;     // start - minStart (seconds)
+  offset: number;
+  duration: number;
+  buffer: AudioBuffer;
+};
+
+type ClipboardBundle = { items: ClipboardItem[] };
 
 /* ----------------------------- helpers ----------------------------- */
 
@@ -115,6 +127,10 @@ export default function DawMixer() {
   const laneH = 90;                          // height of each lane
   const [pxPerSec, setPxPerSec] = useState(140);
   const [bpm, setBpm] = useState(120);
+
+  // NEW: quantization resolution (note values relative to a bar in 4/4)
+  // 1/4 = quarter notes (1 beat), 1/8 = eighths (1/2 beat), etc.
+  const [quant, setQuant] = useState<"1/4" | "1/8" | "1/16" | "1/32">("1/4");
   const [snap, setSnap] = useState(true);
 
   /** transport */
@@ -138,8 +154,13 @@ export default function DawMixer() {
   const [drag, setDrag] = useState<Dragging | null>(null);
 
   /** selection + clipboard */
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const clipboardRef = useRef<Clip | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const clipboardRef = useRef<ClipboardBundle | null>(null);
+
+  /** marquee selection */
+  const [marquee, setMarquee] = useState<{active:boolean,x0:number,y0:number,x1:number,y1:number}>({
+    active:false, x0:0, y0:0, x1:0, y1:0
+  });
 
   /** record */
   const [isRec, setIsRec] = useState(false);
@@ -153,10 +174,7 @@ export default function DawMixer() {
     const master = ac.createGain();
     master.gain.value = masterGainRef.current?.gain.value ?? 0.9;
 
-    // to speakers
     master.connect(ac.destination);
-
-    // to recorder
     const dest = ac.createMediaStreamDestination();
     master.connect(dest);
 
@@ -179,8 +197,19 @@ export default function DawMixer() {
   }, [master]);
 
   /** grid helpers */
-  const beat = useMemo(() => 60 / clamp(bpm, 40, 240), [bpm]); // sec/beat
-  const snapTime = (t: number) => (snap ? Math.round(t / beat) * beat : t);
+  const beat = useMemo(() => 60 / clamp(bpm, 40, 240), [bpm]); // seconds per beat
+
+  // grid step in seconds based on quantization
+  const gridStepSec = useMemo(() => {
+    switch (quant) {
+      case "1/4":  return beat * 1;    // quarter notes (1 beat)
+      case "1/8":  return beat * 0.5;  // eighths
+      case "1/16": return beat * 0.25; // sixteenths
+      case "1/32": return beat * 0.125;// thirty-seconds
+    }
+  }, [beat, quant]);
+
+  const snapTime = (t: number) => (snap ? Math.round(t / gridStepSec) * gridStepSec : t);
 
   /** drawing timeline grid (top ruler) */
   useEffect(() => {
@@ -201,40 +230,31 @@ export default function DawMixer() {
     ctx.fillStyle = "rgba(255,255,255,.06)";
     ctx.fillRect(0, 0, width, height);
 
+    // vertical lines at chosen subdivision
     ctx.strokeStyle = "rgba(255,255,255,.12)";
     ctx.beginPath();
-
-    const secPerMajor = beat; // 1 beat
-    const pxPerMajor = secPerMajor * pxPerSec;
-    for (let x = 0; x < width; x += pxPerMajor) {
+    const pxPerStep = gridStepSec * pxPerSec;
+    for (let x = 0; x < width; x += pxPerStep) {
       ctx.moveTo(Math.floor(x) + 0.5, 0);
       ctx.lineTo(Math.floor(x) + 0.5, height);
     }
     ctx.stroke();
 
-    // labels every 4 beats
+    // labels every 1 second for orientation
     ctx.fillStyle = "rgba(255,255,255,.7)";
     ctx.font = "11px ui-sans-serif, system-ui, -apple-system, Segoe UI";
-    let beatNum = 1;
-    for (let x = 0; x < width; x += pxPerMajor) {
-      if ((beatNum - 1) % 4 === 0) {
-        ctx.fillText(`${Math.round((x / pxPerSec))}s`, x + 4, 22);
-      }
-      beatNum++;
+    for (let s = 0; s < width / pxPerSec; s++) {
+      const x = s * pxPerSec;
+      ctx.fillText(`${s}s`, x + 4, 22);
     }
-  }, [pxPerSec, beat, bpm, hostRef.current?.clientWidth]);
+  }, [pxPerSec, gridStepSec, bpm, hostRef.current?.clientWidth]);
 
   /* ----------------------------- transport ----------------------------- */
 
   function clearPlaying() {
-    playingSources.current.forEach((s) => {
-      try { s.stop(); } catch {}
-    });
+    playingSources.current.forEach((s) => { try { s.stop(); } catch {} });
     playingSources.current = [];
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
   }
 
   function play() {
@@ -244,13 +264,12 @@ export default function DawMixer() {
 
     clearPlaying();
 
-    // schedule all clips that have some part after the cursor
-    const startAt = ac.currentTime + 0.04; // small safety
+    const startAt = ac.currentTime + 0.04;
     const offsetTimeline = cursor;
 
     clips.forEach((c) => {
       const clipEnd = c.start + c.duration;
-      if (clipEnd <= offsetTimeline) return; // already behind
+      if (clipEnd <= offsetTimeline) return;
 
       const when = startAt + Math.max(0, c.start - offsetTimeline);
       const offsetInside = Math.max(0, offsetTimeline - c.start) + c.offset;
@@ -268,7 +287,6 @@ export default function DawMixer() {
 
     setIsPlaying(true);
 
-    // rAF ticker for the cursor
     const tick = () => {
       if (!acRef.current) return;
       const elapsed = acRef.current.currentTime - startAt;
@@ -288,12 +306,63 @@ export default function DawMixer() {
     setCursor(0);
   }
 
-  /** seek by clicking background */
-  function onBgClick(e: React.MouseEvent<HTMLDivElement>) {
+  /* --------------------------- selection logic --------------------------- */
+
+  function selectOnly(id: string) { setSelectedIds(new Set([id])); }
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+  function clearSelection() { setSelectedIds(new Set()); }
+
+  /** background interactions (cursor + marquee) */
+  function onBgMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    if (drag) return;
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
     setCursor(x / pxPerSec);
-    setSelectedId(null);
+    setMarquee({ active: true, x0: x, y0: y, x1: x, y1: y });
+    if (!e.shiftKey) clearSelection();
+  }
+
+  function onBgMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!marquee.active) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = clamp(e.clientX - rect.left, 0, rect.width);
+    const y = clamp(e.clientY - rect.top, 0, rect.height);
+    const next = { ...marquee, x1: x, y1: y };
+    setMarquee(next);
+
+    const minx = Math.min(next.x0, next.x1);
+    const maxx = Math.max(next.x0, next.x1);
+    const miny = Math.min(next.y0, next.y1);
+    const maxy = Math.max(next.y0, next.y1);
+
+    const sel = new Set<string>();
+    const topOfLanes = 36;
+
+    clips.forEach((c) => {
+      const left = c.start * pxPerSec;
+      const top = topOfLanes + c.lane * laneH + 10;
+      const width = Math.max(24, c.duration * pxPerSec);
+      const height = laneH - 20;
+      const right = left + width;
+      const bottom = top + height;
+
+      const overlap = left < maxx && right > minx && top < maxy && bottom > miny;
+      if (overlap) sel.add(c.id);
+    });
+
+    setSelectedIds(sel);
+  }
+
+  function onBgMouseUp() {
+    if (marquee.active) setMarquee(m => ({ ...m, active: false }));
   }
 
   /* ------------------------------ dnd/load ------------------------------ */
@@ -320,18 +389,16 @@ export default function DawMixer() {
 
     const x = clamp(e.clientX - rect.left, 0, rect.width);
     const y = clamp(e.clientY - rect.top, 0, rect.height);
-    const lane = clamp(Math.floor((y - 36) / laneH), 0, lanesCount - 1); // minus top ruler
+    const lane = clamp(Math.floor((y - 36) / laneH), 0, lanesCount - 1);
 
     const start = snapTime(x / pxPerSec);
 
-    // fetch & decode
     const ac = acRef.current!;
     const res = await fetch(data.src);
     const arr = await res.arrayBuffer();
     const buffer = await ac.decodeAudioData(arr);
 
     const color = COLORS[clips.length % COLORS.length];
-    const duration = buffer.duration;
 
     const clip: Clip = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -341,50 +408,39 @@ export default function DawMixer() {
       start,
       buffer,
       offset: 0,
-      duration,
+      duration: buffer.duration,
     };
     setClips((prev) => [...prev, clip]);
-    setSelectedId(clip.id);
+    selectOnly(clip.id);
   }
 
   /* -------------------------- move & trim drag -------------------------- */
 
-  function startMoveDrag(e: React.MouseEvent, clip: Clip, leftEdgeGrab = false, rightEdgeGrab = false) {
-    // ensure context can play in Chrome
+  function startMoveDrag(
+    e: React.MouseEvent,
+    clip: Clip,
+    leftEdgeGrab = false,
+    rightEdgeGrab = false
+  ) {
     acRef.current?.resume();
 
-    setSelectedId(clip.id);
+    if (e.shiftKey) toggleSelect(clip.id);
+    else selectOnly(clip.id);
 
     const host = hostRef.current!;
     const r = host.getBoundingClientRect();
     const x = e.clientX - r.left;
 
     if (leftEdgeGrab) {
-      setDrag({
-        kind: "trim-left",
-        clipId: clip.id,
-        startPx: x,
-        origStart: clip.start,
-        origDuration: clip.duration,
-      });
+      setDrag({ kind: "trim-left", clipId: clip.id, startPx: x, origStart: clip.start, origDuration: clip.duration });
       return;
     }
     if (rightEdgeGrab) {
-      setDrag({
-        kind: "trim-right",
-        clipId: clip.id,
-        startPx: x,
-        origStart: clip.start,
-        origDuration: clip.duration,
-      });
+      setDrag({ kind: "trim-right", clipId: clip.id, startPx: x, origStart: clip.start, origDuration: clip.duration });
       return;
     }
 
-    setDrag({
-      kind: "move",
-      clipId: clip.id,
-      grabX: x - clip.start * pxPerSec,
-    });
+    setDrag({ kind: "move", clipId: clip.id, grabX: x - clip.start * pxPerSec });
   }
 
   function onMouseMove(e: React.MouseEvent) {
@@ -395,32 +451,40 @@ export default function DawMixer() {
 
     if (drag.kind === "move") {
       const newStart = snapTime((x - drag.grabX) / pxPerSec);
-      setClips((prev) =>
-        prev.map((c) => (c.id === drag.clipId ? { ...c, start: clamp(newStart, 0, 60 * 60) } : c))
+
+      const movingIds = selectedIds.size > 1 && selectedIds.has(drag.clipId)
+        ? Array.from(selectedIds)
+        : [drag.clipId];
+
+      const anchor = clips.find(c => c.id === drag.clipId);
+      if (!anchor) return;
+      const delta = newStart - anchor.start;
+
+      setClips(prev =>
+        prev.map(c => movingIds.includes(c.id)
+          ? { ...c, start: clamp(snapTime(c.start + delta), 0, 60 * 60) }
+          : c
+        )
       );
       return;
     }
 
-    // Trimming
+    // Trimming with quantization
     const dxSec = (x - drag.startPx) / pxPerSec;
     setClips((prev) =>
       prev.map((c) => {
         if (c.id !== drag.clipId) return c;
         if (drag.kind === "trim-left") {
-          // newStart increases up to original start + duration - 0.02
           let ns = snapTime(drag.origStart + dxSec);
           let ndur = snapTime(drag.origDuration - dxSec);
-          // keep positive & within buffer
           ndur = clamp(ndur, 0.02, c.buffer.duration - c.offset);
-          ns = clamp(ns, 0, c.start + c.duration); // sane bound
-          // convert left trim into offset change relative to buffer
+          ns = clamp(ns, 0, c.start + c.duration);
           const delta = ns - c.start;
           const newOffset = clamp(c.offset + delta, 0, c.buffer.duration - 0.02);
           const maxDur = c.buffer.duration - newOffset;
           ndur = clamp(ndur, 0.02, maxDur);
           return { ...c, start: ns, offset: newOffset, duration: ndur };
         } else {
-          // trim-right ⇒ duration changes
           let ndur = snapTime(drag.origDuration + dxSec);
           const maxDur = c.buffer.duration - c.offset;
           ndur = clamp(ndur, 0.02, maxDur);
@@ -430,49 +494,72 @@ export default function DawMixer() {
     );
   }
 
-  function onMouseUp() {
-    if (drag) setDrag(null);
-  }
+  function onMouseUp() { if (drag) setDrag(null); }
 
   /* --------------------------- copy / paste / del --------------------------- */
 
-  // Copy: Cmd/Ctrl + C
-  // Paste: Cmd/Ctrl + V (at cursor on same lane)
-  // Delete: Delete/Backspace
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const meta = e.metaKey || e.ctrlKey;
+
+      if (meta && (e.key === "a" || e.key === "A")) {
+        setSelectedIds(new Set(clips.map(c => c.id)));
+        e.preventDefault();
+        return;
+      }
+
       if (meta && (e.key === "c" || e.key === "C")) {
-        if (!selectedId) return;
-        const c = clips.find(x => x.id === selectedId);
-        if (!c) return;
-        clipboardRef.current = { ...c, id: "clipboard" }; // id will be replaced on paste
-        e.preventDefault();
-      }
-      if (meta && (e.key === "v" || e.key === "V")) {
-        const clip = clipboardRef.current;
-        if (!clip) return;
-        // paste on same lane at playhead (snapped)
-        const start = snapTime(cursor);
-        const newClip: Clip = {
-          ...clip,
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          start,
+        if (selectedIds.size === 0) return;
+        const selected = clips.filter(c => selectedIds.has(c.id));
+        const minStart = Math.min(...selected.map(c => c.start));
+        clipboardRef.current = {
+          items: selected.map(c => ({
+            name: c.name,
+            color: c.color,
+            lane: c.lane,
+            relStart: c.start - minStart,
+            offset: c.offset,
+            duration: c.duration,
+            buffer: c.buffer,
+          })),
         };
-        setClips(prev => [...prev, newClip]);
-        setSelectedId(newClip.id);
         e.preventDefault();
+        return;
       }
+
+      if (meta && (e.key === "v" || e.key === "V")) {
+        const bundle = clipboardRef.current;
+        if (!bundle || bundle.items.length === 0) return;
+        const startAt = snapTime(cursor);
+        const now = Date.now();
+
+        const clones: Clip[] = bundle.items.map((it, i) => ({
+          id: `${now}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+          name: it.name,
+          color: it.color,
+          lane: it.lane,
+          start: clamp(startAt + it.relStart, 0, 60 * 60),
+          buffer: it.buffer,
+          offset: it.offset,
+          duration: it.duration,
+        }));
+
+        setClips(prev => [...prev, ...clones]);
+        setSelectedIds(new Set(clones.map(c => c.id)));
+        e.preventDefault();
+        return;
+      }
+
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (!selectedId) return;
-        setClips(prev => prev.filter(x => x.id !== selectedId));
-        setSelectedId(null);
+        if (selectedIds.size === 0) return;
+        setClips(prev => prev.filter(x => !selectedIds.has(x.id)));
+        setSelectedIds(new Set());
         e.preventDefault();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [clips, selectedId, cursor, snapTime]);
+  }, [clips, selectedIds, cursor, snapTime]);
 
   /* ------------------------------ recording ------------------------------ */
 
@@ -494,11 +581,7 @@ export default function DawMixer() {
     setIsRec(true);
   }
 
-  function stopRecord() {
-    if (!recRef.current) return;
-    recRef.current.stop();
-    setIsRec(false);
-  }
+  function stopRecord() { if (recRef.current) recRef.current.stop(); setIsRec(false); }
 
   /* ------------------------------- sizing ------------------------------- */
 
@@ -506,16 +589,9 @@ export default function DawMixer() {
     (Math.max(8, ...clips.map((c) => c.start + c.duration))) * pxPerSec,
     (hostRef.current?.clientWidth || 0)
   );
-  const totalHeight = 36 + lanesCount * laneH; // 36px ruler + lanes
+  const totalHeight = 36 + lanesCount * laneH;
 
-  /** visible list of clips (for footer scroller) */
-  const listItems = clips.map((c) => ({
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    lane: c.lane,
-    start: c.start,
-  }));
+  const listItems = clips.map((c) => ({ id: c.id, name: c.name, color: c.color, lane: c.lane, start: c.start }));
 
   /* -------------------------------- render -------------------------------- */
 
@@ -554,6 +630,21 @@ export default function DawMixer() {
           />
         </label>
 
+        {/* NEW: Grid selector */}
+        <label className="text-sm text-gray-300 flex items-center gap-2">
+          Grid
+          <select
+            className="bg-white/10 rounded-md px-2 py-1"
+            value={quant}
+            onChange={(e)=>setQuant(e.target.value as typeof quant)}
+          >
+            <option value="1/4">1/4 (quarters)</option>
+            <option value="1/8">1/8 (eighths)</option>
+            <option value="1/16">1/16</option>
+            <option value="1/32">1/32</option>
+          </select>
+        </label>
+
         <label className="text-sm text-gray-300 flex items-center gap-2">
           <input type="checkbox" checked={snap} onChange={(e)=>setSnap(e.target.checked)}/>
           Snap to beat
@@ -584,12 +675,11 @@ export default function DawMixer() {
         ref={hostRef}
         className="relative rounded-2xl overflow-auto border border-white/10 bg-white/5 select-none"
         style={{ height: totalHeight }}
-        onClick={onBgClick}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
+        onMouseDown={onBgMouseDown}
+        onMouseMove={(e) => { onBgMouseMove(e); onMouseMove(e); }}
+        onMouseUp={() => { onBgMouseUp(); onMouseUp(); }}
+        onMouseLeave={() => { onBgMouseUp(); onMouseUp(); }}
       >
-        {/* long canvas background grid */}
         <div style={{ width: totalWidth, height: totalHeight, position: "relative" }}>
           {/* horizontal lane separators */}
           {Array.from({ length: lanesCount }).map((_, i) => (
@@ -600,9 +690,9 @@ export default function DawMixer() {
             />
           ))}
 
-          {/* vertical beat grid */}
-          {Array.from({ length: Math.ceil(totalWidth / (beat * pxPerSec)) + 1 }).map((_, i) => {
-            const x = Math.floor(i * beat * pxPerSec) + 0.5;
+          {/* vertical grid at chosen subdivision */}
+          {Array.from({ length: Math.ceil(totalWidth / (gridStepSec * pxPerSec)) + 1 }).map((_, i) => {
+            const x = Math.floor(i * gridStepSec * pxPerSec) + 0.5;
             return (
               <div
                 key={`grid-${i}`}
@@ -618,13 +708,26 @@ export default function DawMixer() {
             style={{ left: cursor * pxPerSec, borderColor: "rgba(99,102,241,.8)" }}
           />
 
+          {/* marquee rect */}
+          {marquee.active && (
+            <div
+              className="absolute border-2 border-indigo-400/60 bg-indigo-400/10 rounded-lg"
+              style={{
+                left: Math.min(marquee.x0, marquee.x1),
+                top: Math.min(marquee.y0, marquee.y1),
+                width: Math.abs(marquee.x1 - marquee.x0),
+                height: Math.abs(marquee.y1 - marquee.y0),
+              }}
+            />
+          )}
+
           {/* clips */}
           {clips.map((c) => {
             const left = Math.round(c.start * pxPerSec);
             const top = 36 + c.lane * laneH + 10;
             const width = Math.max(24, Math.round(c.duration * pxPerSec));
             const height = laneH - 20;
-            const selected = c.id === selectedId;
+            const selected = selectedIds.has(c.id);
 
             return (
               <div
@@ -635,20 +738,20 @@ export default function DawMixer() {
                 style={{ left, top, width, height, transition: "box-shadow .12s" }}
                 title={`${c.name} • ${secondsToTime(c.duration)}`}
                 onMouseDown={(e) => {
-                  // decide which zone was grabbed (trim handles or body)
+                  e.stopPropagation();
                   const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
                   const px = e.clientX - rect.left;
-                  const edge = 10; // px
+                  const edge = 10;
                   const leftGrab = px <= edge;
                   const rightGrab = px >= rect.width - edge;
                   startMoveDrag(e, c, leftGrab, rightGrab);
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedId(c.id);
+                  if (e.shiftKey) toggleSelect(c.id);
+                  else selectOnly(c.id);
                 }}
               >
-                {/* header */}
                 <div className="flex items-center justify-between text-[11px] mb-1">
                   <div className="inline-flex items-center gap-2">
                     <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: c.color }} />
@@ -657,7 +760,6 @@ export default function DawMixer() {
                   <span className="opacity-60">{secondsToTime(c.duration)}</span>
                 </div>
 
-                {/* waveform */}
                 <Wave buffer={c.buffer} color={c.color} width={width - 8} height={height - 28} />
 
                 {/* trim handles */}
@@ -686,7 +788,7 @@ export default function DawMixer() {
               <li
                 key={c.id}
                 className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5"
-                title={`${c.name} @ ${secondsToTime(c.start)} • lane ${c.lane}`}
+                title={`${c.name} @ {secondsToTime(c.start)} • lane ${c.lane}`}
               >
                 <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: c.color }} />
                 <span className="truncate max-w-[10rem] text-[12px] text-gray-100">{c.name}</span>

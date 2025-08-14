@@ -1,0 +1,44 @@
+name: Deploy Soundboard to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🧰 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🛠️ Build project
+        run: npm run build
+
+      - name: 🔐 Prepare SSH key
+        run: |
+          echo "${{ secrets.DROPLET_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh-keyscan -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: 🚀 Deploy via rsync
+        run: |
+          rsync -avz --delete -e "ssh -i private_key.pem -p ${{ secrets.DROPLET_PORT }}" \
+            ./dist/ ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
+
+      - name: 🔄 Reload Nginx
+        run: |
+          ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "sudo nginx -t && sudo systemctl reload nginx"
+
+      - name: 🧹 Clean up
+        run: rm -f private_key.pem
