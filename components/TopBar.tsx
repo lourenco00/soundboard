@@ -1,6 +1,7 @@
 // components/TopBar.tsx
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 export default function TopBar() {
   const [authed, setAuthed] = useState(false);
@@ -20,13 +21,25 @@ export default function TopBar() {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
-    location.reload(); // refresh UI to logged-out
+    location.reload();
   }
 
   return (
     <header className="px-4 py-3 border-b border-white/10 bg-black/20 backdrop-blur-md">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="font-semibold">Soundboard Lab</div>
+        {/* Logo + Name */}
+        <div className="flex items-center gap-2 font-semibold text-white">
+          <Image
+            src="/soundboardlab.png"
+            alt="Soundboard Lab Logo"
+            width={28}
+            height={28}
+            className="rounded"
+          />
+          Soundboard Lab
+        </div>
+
+        {/* Right side */}
         <div className="flex items-center gap-2">
           {plan && (
             <span className="text-xs px-2 py-1 rounded-md bg-white/10">
@@ -36,12 +49,21 @@ export default function TopBar() {
           {authed ? (
             <div className="flex items-center gap-2">
               <span className="text-sm opacity-80">{email}</span>
-              <button className="btn-ghost rounded-md px-3 py-1" onClick={logout}>Log out</button>
+              <button
+                className="btn-ghost rounded-md px-3 py-1"
+                onClick={logout}
+              >
+                Log out
+              </button>
             </div>
           ) : (
             <>
-              <a href="/login" className="btn-ghost rounded-md px-3 py-1">Log in</a>
-              <a href="/signup" className="btn-ghost rounded-md px-3 py-1">Sign up</a>
+              <a href="/login" className="btn-ghost rounded-md px-3 py-1">
+                Log in
+              </a>
+              <a href="/signup" className="btn-ghost rounded-md px-3 py-1">
+                Sign up
+              </a>
             </>
           )}
         </div>
