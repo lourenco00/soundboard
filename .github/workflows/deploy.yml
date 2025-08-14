@@ -54,7 +54,8 @@ jobs:
         run: |
           ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "cd ${{ secrets.REMOTE_PATH }} && pm2 restart soundboard || pm2 start npm --name soundboard -- run start"
+            "cd ${{ secrets.REMOTE_PATH }} && pm2 restart soundboard || pm2 start npm --name soundboard -- run start -- -p 3001"
+
 
       - name: 🧹 Clean up
         run: rm -f private_key.pem
