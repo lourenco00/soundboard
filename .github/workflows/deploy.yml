@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 📄 Write .env.production
+      - name: 📄 Write .env.production 
         run: echo "${{ secrets.PROD_ENV_PRODUCTION }}" > .env.production
 
       - name: 📦 Install dependencies and build Soundboard locally
