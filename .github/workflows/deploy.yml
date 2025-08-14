@@ -6,58 +6,70 @@ on:
       - main
 
 jobs:
-  deploy:
+  deploy-soundboard:
     runs-on: ubuntu-latest
 
     steps:
       - name: 📥 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: 🧰 Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      - name: 📦 Install dependencies
-        run: npm ci
+      - name: 📄 Write .env.production
+        run: echo "${{ secrets.PROD_ENV_PRODUCTION }}" > .env.production
 
-      - name: 🛠️ Build project
+      - name: 📦 Install dependencies and build Soundboard locally
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM: ${{ secrets.RESEND_FROM }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           NEXT_PUBLIC_STRIPE_PRICE_ID: ${{ secrets.NEXT_PUBLIC_STRIPE_PRICE_ID }}
           NEXT_PUBLIC_PUBLIC_URL: ${{ secrets.NEXT_PUBLIC_PUBLIC_URL }}
-        run: npm run build -- --no-lint
-
-      - name: 🔐 Prepare SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DROPLET_PRIVATE_KEY }}" > private_key.pem
+          npm ci
+          npm run build -- --no-lint
+
+      - name: 🚀 Deploy Soundboard to Production Droplet
+        env:
+          HOST: ${{ secrets.DROPLET_HOST }}
+          USERNAME: ${{ secrets.DROPLET_USER }}
+          PRIVATE_KEY: ${{ secrets.DROPLET_PRIVATE_KEY }}
+          REMOTE_PATH: ${{ secrets.REMOTE_PATH }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key.pem
           chmod 600 private_key.pem
-          ssh-keyscan -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: 🚀 Deploy via rsync
-        run: |
-          ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
-            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "rm -rf ${{ secrets.REMOTE_PATH }}/*"
-          rsync -avz \
-            -e "ssh -i private_key.pem -p ${{ secrets.DROPLET_PORT }}" \
-            .next/ package.json package-lock.json public/ prisma/ scripts/ \
-            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
+          echo "🔹 SSH connection test..."
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USERNAME@$HOST "echo '✅ SSH connected'"
 
-      - name: 📦 Install server dependencies
-        run: |
-          ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
-            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "cd ${{ secrets.REMOTE_PATH }} && npm install --omit=dev"
+          echo "🔹 Prepare prod folder..."
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USERNAME@$HOST "
+            mkdir -p $REMOTE_PATH &&
+            sudo chown -R $USERNAME:$USERNAME $REMOTE_PATH
+          "
 
-      - name: 🔄 Restart PM2 / App
-        run: |
-          ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
-            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "cd ${{ secrets.REMOTE_PATH }} && pm2 restart soundboard || pm2 start npm --name soundboard -- run start -- -p 3001"
+          echo "🔹 Upload .next build..."
+          rsync -avz --delete \
+            -e "ssh -i private_key.pem -o StrictHostKeyChecking=no" \
+            .next/ $USERNAME@$HOST:$REMOTE_PATH/.next/
+
+          echo "🔹 Upload remaining project files..."
+          rsync -avz --exclude=node_modules --exclude=private_key.pem \
+            -e "ssh -i private_key.pem -o StrictHostKeyChecking=no" \
+            public package.json package-lock.json .env.production \
+            $USERNAME@$HOST:$REMOTE_PATH
+
+          echo "🔹 Install production deps & restart Soundboard..."
+          ssh -o StrictHostKeyChecking=no -i private_key.pem $USERNAME@$HOST "
+            cd $REMOTE_PATH &&
+            npm ci --omit=dev &&
+            pm2 delete soundboard || true &&
+            PORT=3001 pm2 start npm --name soundboard -- run start &&
+            pm2 save
+          "
 
       - name: 🧹 Clean up
-        run: rm -f private_key.pem
+        run: rm private_key.pem
