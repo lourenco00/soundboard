@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const { session_id } = await req.json();
   if (!session_id) return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2023-10-16" });
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   const session = await stripe.checkout.sessions.retrieve(session_id, { expand: ["subscription"] });
 
   const email = session.customer_details?.email;
