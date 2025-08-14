@@ -189,7 +189,7 @@ export default function Page() {
           {/* Pads-only UI on the main page */}
           <header className="glass rounded-2xl p-5 flex items-center justify-between">
             <div>
-              <h1 className="text-xl md:text-2xl font-semibold">Soundboard Lab — Pads Mode</h1>
+              <h1 className="text-xl md:text-2xl font-semibold">Soundboard Lab - Pads Mode</h1>
               <p className="text-gray-500 text-sm mt-1">
                 Drag from Library; pads use keys A S D F G H J K L. MIDI supported.
               </p>
