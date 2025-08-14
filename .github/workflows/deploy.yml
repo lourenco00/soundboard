@@ -44,7 +44,13 @@ jobs:
             .next/ package.json package-lock.json public/ \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
 
-      - name: 🔄 Reload PM2 / App
+      - name: 📦 Install server dependencies
+        run: |
+          ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
+            "cd ${{ secrets.REMOTE_PATH }} && npm install --omit=dev"
+
+      - name: 🔄 Restart PM2 / App
         run: |
           ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
