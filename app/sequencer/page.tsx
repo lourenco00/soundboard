@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import TopBar from "@/components/TopBar";
@@ -9,7 +9,18 @@ import StepSequencer from "@/components/StepSequencer";
 
 type Beat = any;
 
+// Avoid prerender for search params-driven UI
+export const dynamic = "force-dynamic";
+
 export default function SequencerPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-6 text-sm text-gray-400">Loading sequencer…</div>}>
+      <SequencerClient />
+    </Suspense>
+  );
+}
+
+function SequencerClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -17,12 +28,11 @@ export default function SequencerPage() {
   const [selected, setSelected] = useState<Beat | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
 
-  // load saved beats
   useEffect(() => {
     fetch("/api/beats").then(r => r.ok ? r.json() : []).then(setBeats).catch(()=> setBeats([]));
   }, []);
 
-  // ---- open beat from URL (?beat=ID)
+  // open beat from URL (?beat=ID)
   useEffect(() => {
     const id = sp.get("beat");
     if (!id) return;
@@ -32,20 +42,17 @@ export default function SequencerPage() {
     })();
   }, [sp]);
 
-  // ---- library with Presets (beats+piano presets) + categories
+  // library with presets
   async function loadLibrary() {
     try {
       const base = await fetch("/samples.manifest.json").then(r => r.json());
       const cats: Group[] = base.categories || [];
-
       const presets = await fetch("/api/presets").then(r => r.ok ? r.json() : { folders: [], items: [] });
 
-      // group presets by folder
       const byFolder: Record<string, any[]> = {};
-      for (const p of presets.items || []) {
-        const key = p.folder || "(Unsorted)";
-        (byFolder[key] ||= []).push(p);
-      }
+      (presets.items || []).forEach((p: any) => {
+        (byFolder[p.folder || "(Unsorted)"] ||= []).push(p);
+      });
 
       const presetGroups: Group[] = Object.keys(byFolder).sort().map(folderName => ({
         id: `presets-${folderName}`,
@@ -53,8 +60,7 @@ export default function SequencerPage() {
         items: byFolder[folderName].map((p: any) => ({
           id: p.id,
           name: p.name,
-          kind: p.kind,          // "step" | "piano"
-          // no src for presets
+          kind: p.kind, // "step" | "piano"
         })),
       }));
 
@@ -65,9 +71,8 @@ export default function SequencerPage() {
   }
   useEffect(() => { loadLibrary(); }, []);
 
-  // click handlers
   function openBeat(id: string) {
-    router.push(`/sequencer?beat=${encodeURIComponent(id)}`); // keeps page editable
+    router.push(`/sequencer?beat=${encodeURIComponent(id)}`);
   }
   async function deletePreset(kind: "step" | "piano", id: string) {
     if (!confirm("Delete this preset?")) return;
@@ -76,7 +81,6 @@ export default function SequencerPage() {
     if (r.ok) {
       if (kind === "step") setBeats(await fetch("/api/beats").then(x => x.json()).catch(()=>[]));
       loadLibrary();
-      // if we just deleted the open beat, clear it
       if (selected?.id === id && kind === "step") setSelected(null);
     }
   }
@@ -96,7 +100,7 @@ export default function SequencerPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-6 grid grid-cols-12 gap-6">
-        {/* LEFT: Library + My Beats list */}
+        {/* LEFT */}
         <aside className="col-span-12 lg:col-span-4 space-y-4">
           <div className="glass rounded-2xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -119,7 +123,6 @@ export default function SequencerPage() {
             </div>
           </div>
 
-          {/* Library with Presets (folders) */}
           <div className="glass rounded-2xl p-3">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-semibold">Library</h3>
@@ -144,15 +147,15 @@ export default function SequencerPage() {
               groups={groups}
               onOpenStep={(id) => openBeat(id)}
               onOpenPiano={(id) => { window.location.href = `/piano?preset=${encodeURIComponent(id)}`; }}
-              onDeletePreset={async (kind, id) => deletePreset(kind as any, id)}
+              onDeletePreset={(kind, id) => deletePreset(kind as any, id)}
             />
           </div>
         </aside>
 
-        {/* RIGHT: Sequencer – key forces remount when selection changes */}
+        {/* RIGHT */}
         <section className="col-span-12 lg:col-span-8">
           <StepSequencer
-            key={selected?.id || "new"}               // ← ensures it loads the chosen beat
+            key={selected?.id || "new"}
             initial={selected || undefined}
             onSendToDAW={() => {}}
           />

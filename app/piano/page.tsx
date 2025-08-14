@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import PianoRoll, { Sample, PianoPreset } from "@/components/instruments/PianoRoll";
 
+// Avoid prerender for search params-driven UI
+export const dynamic = "force-dynamic";
+
 export default function PianoPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-7xl px-4 py-6 text-sm text-gray-400">Loading piano…</div>}>
+      <PianoClient />
+    </Suspense>
+  );
+}
+
+function PianoClient() {
   const sp = useSearchParams();
   const [samples, setSamples] = useState<Sample[]>([]);
   const [presets, setPresets] = useState<PianoPreset[]>([]);
