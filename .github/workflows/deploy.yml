@@ -41,7 +41,7 @@ jobs:
         run: |
           rsync -avz --delete \
             -e "ssh -i private_key.pem -p ${{ secrets.DROPLET_PORT }}" \
-            .next/ package.json package-lock.json public/ \
+            .next/ package.json package-lock.json public/ prisma/ scripts/ \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
 
       - name: 📦 Install server dependencies
@@ -55,7 +55,6 @@ jobs:
           ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
             "cd ${{ secrets.REMOTE_PATH }} && pm2 restart soundboard || pm2 start npm --name soundboard -- run start -- -p 3001"
-
 
       - name: 🧹 Clean up
         run: rm -f private_key.pem
