@@ -1,13 +1,28 @@
-import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function POST() {
-  const price = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID!;
-  const success = `${process.env.NEXT_PUBLIC_PUBLIC_URL}/success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancel = `${process.env.NEXT_PUBLIC_PUBLIC_URL}/cancel`;
+import { NextRequest, NextResponse } from "next/server";
+import { getStripe } from "@/lib/stripe";
 
+function getBaseUrl(req: NextRequest) {
+  const env = process.env.NEXT_PUBLIC_PUBLIC_URL;
+  if (env) return env.replace(/\/+$/, "");
+  const proto = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
+  const host  = (req.headers.get("x-forwarded-host")  || req.headers.get("host") || "").split(",")[0].trim();
+  return `${proto}://${host}`;
+}
+
+export async function POST(req: NextRequest) {
+  const price = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
+  if (!price) return NextResponse.json({ error: "Missing NEXT_PUBLIC_STRIPE_PRICE_ID" }, { status: 500 });
+
+  const base = getBaseUrl(req);
+  const success = `${base}/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancel  = `${base}/cancel`;
+
+  const stripe = getStripe();
   const session = await stripe.checkout.sessions.create({
-    mode: "subscription", // or "payment" for one-time
+    mode: "subscription",
     line_items: [{ price, quantity: 1 }],
     success_url: success,
     cancel_url: cancel,
@@ -18,7 +33,5 @@ export async function POST() {
 }
 
 export async function GET() {
-  // lightweight plan check (used by TopBar as /api/entitlements GET)
-  // Forward to entitlements route for consistency
   return NextResponse.redirect("/api/entitlements");
 }

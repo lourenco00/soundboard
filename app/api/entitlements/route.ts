@@ -1,11 +1,12 @@
 // app/api/entitlements/route.ts
-export const runtime = "nodejs";
-
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import { setEntitlementsCookie, signEntitlements } from "@/lib/entitlements";
 import { requireUser } from "@/lib/auth";
+import { getStripe } from "@/lib/stripe";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await requireUser();
@@ -15,10 +16,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const { session_id } = await req.json();
-  if (!session_id) return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
+  if (!session_id) return new Response(JSON.stringify({ error: "Missing session_id" }), { status: 400 });
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const stripe = getStripe();
   const session = await stripe.checkout.sessions.retrieve(session_id, { expand: ["subscription"] });
+
 
   const email = session.customer_details?.email;
   if (!email) return NextResponse.json({ error: "No email from Stripe" }, { status: 400 });
