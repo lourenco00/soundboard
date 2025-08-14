@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -24,25 +25,30 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          NEXT_PUBLIC_STRIPE_PRICE_ID: ${{ secrets.NEXT_PUBLIC_STRIPE_PRICE_ID }}
+          NEXT_PUBLIC_PUBLIC_URL: ${{ secrets.NEXT_PUBLIC_PUBLIC_URL }}
         run: npm run build -- --no-lint
-
 
       - name: 🔐 Prepare SSH key
         run: |
+          mkdir -p ~/.ssh
           echo "${{ secrets.DROPLET_PRIVATE_KEY }}" > private_key.pem
           chmod 600 private_key.pem
           ssh-keyscan -p "${{ secrets.DROPLET_PORT }}" "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
 
       - name: 🚀 Deploy via rsync
         run: |
-          rsync -avz --delete -e "ssh -i private_key.pem -p ${{ secrets.DROPLET_PORT }}" \
-            ./dist/ ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
+          rsync -avz --delete \
+            -e "ssh -i private_key.pem -p ${{ secrets.DROPLET_PORT }}" \
+            .next/ package.json package-lock.json public/ \
+            ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ secrets.REMOTE_PATH }}/
 
-      - name: 🔄 Reload Nginx
+      - name: 🔄 Reload PM2 / App
         run: |
           ssh -i private_key.pem -p "${{ secrets.DROPLET_PORT }}" \
             ${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }} \
-            "sudo nginx -t && sudo systemctl reload nginx"
+            "cd ${{ secrets.REMOTE_PATH }} && pm2 restart soundboard || pm2 start npm --name soundboard -- run start"
 
       - name: 🧹 Clean up
         run: rm -f private_key.pem
