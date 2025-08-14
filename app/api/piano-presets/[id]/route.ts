@@ -1,22 +1,30 @@
 import { NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth";
 
-let PRESETS: any[] = []; // note: Node module scope is isolated per file in dev
-// To share memory between files in dev, you can centralize in /lib/pianoStore.ts
-// For now we’ll re-read from globalThis if present:
 const g: any = globalThis as any;
 if (!g.__PIANO_PRESETS__) g.__PIANO_PRESETS__ = [];
-PRESETS = g.__PIANO_PRESETS__;
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  const p = PRESETS.find(x => x.id === params.id);
-  if (!p) return new NextResponse("Not found", { status: 404 });
-  return NextResponse.json(p);
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  try {
+    const { uid } = requireUser();
+    const p = (g.__PIANO_PRESETS__ as any[]).find(x => x.id === id && x.userId === uid);
+    if (!p) return new NextResponse("Not found", { status: 404 });
+    return NextResponse.json(p);
+  } catch {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  const before = PRESETS.length;
-  PRESETS = PRESETS.filter(x => x.id !== params.id);
-  g.__PIANO_PRESETS__ = PRESETS;
-  const ok = PRESETS.length !== before;
-  return NextResponse.json({ ok });
+export async function DELETE(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  try {
+    const { uid } = requireUser();
+    const before = g.__PIANO_PRESETS__.length;
+    g.__PIANO_PRESETS__ = g.__PIANO_PRESETS__.filter((x: any) => !(x.id === id && x.userId === uid));
+    const ok = g.__PIANO_PRESETS__.length !== before;
+    return NextResponse.json({ ok });
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 }

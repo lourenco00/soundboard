@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+// GET /api/beats/:id
+export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;          // ← await params
     const { uid } = requireUser();
-    const beat = await prisma.beat.findFirst({ where: { id: params.id, userId: uid } });
+
+    const beat = await prisma.beat.findFirst({
+      where: { id, userId: uid },
+    });
+
     if (!beat) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(beat);
   } catch {
@@ -13,32 +19,50 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+// PUT /api/beats/:id
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;          // ← await params
     const { uid } = requireUser();
     const body = await req.json();
-    const beat = await prisma.beat.update({
-      where: { id: params.id },
+
+    // Safer update: constrain by both id & userId so you can’t change another user’s beat
+    const updated = await prisma.beat.updateMany({
+      where: { id, userId: uid },
       data: {
         name: body.name,
         bpm: body.bpm,
         steps: body.steps,
-        pattern: body.pattern
-      }
+        pattern: body.pattern,
+      },
     });
-    if (beat.userId !== uid) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    if (updated.count === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const beat = await prisma.beat.findUnique({ where: { id } });
     return NextResponse.json(beat);
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Bad Request" }, { status: 400 });
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+// DELETE /api/beats/:id
+export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params;          // ← await params
     const { uid } = requireUser();
-    const beat = await prisma.beat.findUnique({ where: { id: params.id } });
-    if (!beat || beat.userId !== uid) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    await prisma.beat.delete({ where: { id: params.id } });
+
+    // Delete guarded by userId
+    const deleted = await prisma.beat.deleteMany({
+      where: { id, userId: uid },
+    });
+
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Bad Request" }, { status: 400 });
