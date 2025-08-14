@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link"; // ✅ added
 import TopBar from "@/components/TopBar";
 import Pad, { PadData } from "@/components/Pad";
 import SampleList, { Group } from "@/components/SampleList";
@@ -7,7 +8,7 @@ import Paywall from "@/components/Paywall";
 import BankTabs from "@/components/BankTabs";
 import Mixer from "@/components/Mixer";
 // import TimelineMix from "@/components/TimelineMix"; // (optional; not used in Mix tab per your request)
-import DawMixer from "@/components/DawMixer";
+// import DawMixer from "@/components/DawMixer"; // ❌ removed
 
 type Me = { plan: "FREE" | "PRO" };
 
@@ -144,17 +145,21 @@ export default function Page() {
             Pads
           </button>
 
-          {/* Mix tab only if logged in */}
+          {/* Mix tab navigates to /mix */}
           {isAuthed ? (
-            <button
-              className={`px-3 py-1.5 rounded-lg text-sm ${activeTab === "mix" ? "bg-white/15 text-white" : "text-gray-300 hover:bg-white/10"}`}
-              onClick={() => setActiveTab("mix")}
-            >
-              Mix
-            </button>
+            <>
+              <Link href="/daw" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">
+                DAW
+              </Link>
+              <Link href="/sequencer" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">
+                Step Seq
+              </Link>
+            </>
           ) : (
             <span className="ml-1 text-xs text-gray-400">
-              Mix (log in to access)
+              <Link href="/login" className="underline hover:text-gray-300">
+                DAW & Step Seq (log in to access)
+              </Link>
             </span>
           )}
         </div>
@@ -165,87 +170,72 @@ export default function Page() {
         {/* Sidebar Library (always shown) */}
         <div className="col-span-12 lg:col-span-3 h-[74vh]">
           <SampleList groups={groups} />
-          {/* Presets only for Pads tab (can also leave visible always if you prefer) */}
-          {activeTab === "pads" && (
-            <div className="mt-4 glass rounded-2xl p-3 text-xs text-gray-500">
-              <div className="font-semibold text-gray-700 mb-2">Presets</div>
-              <div className="flex flex-wrap gap-2">
-                <button className="btn-ghost rounded-lg" onClick={savePreset}>Save</button>
-                <button className="btn-ghost rounded-lg" onClick={loadPreset}>Load</button>
-                <button className="btn-ghost rounded-lg" onClick={exportPreset}>Export</button>
-                <label className="btn-ghost rounded-lg cursor-pointer">
-                  Import<input className="hidden" type="file" accept="application/json" onChange={importPreset} />
-                </label>
-              </div>
+          {/* Presets (visible on this page) */}
+          <div className="mt-4 glass rounded-2xl p-3 text-xs text-gray-500">
+            <div className="font-semibold text-gray-700 mb-2">Presets</div>
+            <div className="flex flex-wrap gap-2">
+              <button className="btn-ghost rounded-lg" onClick={savePreset}>Save</button>
+              <button className="btn-ghost rounded-lg" onClick={loadPreset}>Load</button>
+              <button className="btn-ghost rounded-lg" onClick={exportPreset}>Export</button>
+              <label className="btn-ghost rounded-lg cursor-pointer">
+                Import<input className="hidden" type="file" accept="application/json" onChange={importPreset} />
+              </label>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Main */}
         <div className="col-span-12 lg:col-span-9 space-y-6">
-          {activeTab === "pads" ? (
-            <>
-              <header className="glass rounded-2xl p-5 flex items-center justify-between">
-                <div>
-                  <h1 className="text-xl md:text-2xl font-semibold">Soundboard Lab- Pads Mode</h1>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Drag from Library; pads use keys A S D F G H J K L. MIDI supported.
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <BankTabs bank={bank} setBank={setBank} />
-                  <div className="text-sm text-gray-500 flex items-center gap-2">
-                    <span>Quantize</span>
-                    <select
-                      className="bg-white/80 rounded-md px-2 py-1"
-                      value={quantize}
-                      onChange={(e) => setQuantize(parseInt(e.target.value))}
-                    >
-                      <option value={0}>Off</option>
-                      <option value={125}>1/8 (120bpm)</option>
-                      <option value={250}>1/4</option>
-                      <option value={500}>1/2</option>
-                    </select>
-                  </div>
-                </div>
-              </header>
-
-              {/* Pads */}
-              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {pads.map((p) => (
-                  <Pad
-                    key={`${bank}-${p.key}`}
-                    data={p}
-                    quantizeMs={quantize}
-                    onDropSample={handleDropSample}
-                    onSoloChange={onSoloChange}
-                    soloActive={anySolo}
-                  />
-                ))}
-              </section>
-
-              {/* Mixer (pads tab can still use it) */}
-              <Mixer />
-
-              {/* Optional timeline — comment in if you want it on Pads tab */}
-              {/* <TimelineMix /> */}
-
-              {me.plan === "FREE" && (
-                <div className="glass rounded-2xl p-5">
-                  <Paywall title="Unlock higher upload limits, more banks, and longer recordings" />
-                </div>
-              )}
-            </>
-          ) : (
-            // MIX TAB: only mixer in the main column
-            <>
-              <div className="glass rounded-2xl p-4">
-                <div className="text-sm text-gray-400 mb-2">
-                  Mix view: drop samples from the Library onto the timeline. Click the waveform to move the playhead.
-                </div>
-                <DawMixer />
+          {/* Pads-only UI on the main page */}
+          <header className="glass rounded-2xl p-5 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl md:text-2xl font-semibold">Soundboard Lab — Pads Mode</h1>
+              <p className="text-gray-500 text-sm mt-1">
+                Drag from Library; pads use keys A S D F G H J K L. MIDI supported.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <BankTabs bank={bank} setBank={setBank} />
+              <div className="text-sm text-gray-500 flex items-center gap-2">
+                <span>Quantize</span>
+                <select
+                  className="bg-white/80 rounded-md px-2 py-1"
+                  value={quantize}
+                  onChange={(e) => setQuantize(parseInt(e.target.value))}
+                >
+                  <option value={0}>Off</option>
+                  <option value={125}>1/8 (120bpm)</option>
+                  <option value={250}>1/4</option>
+                  <option value={500}>1/2</option>
+                </select>
               </div>
-            </>
+            </div>
+          </header>
+
+          {/* Pads */}
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pads.map((p) => (
+              <Pad
+                key={`${bank}-${p.key}`}
+                data={p}
+                quantizeMs={quantize}
+                onDropSample={handleDropSample}
+                onSoloChange={onSoloChange}
+                soloActive={anySolo}
+              />
+            ))}
+          </section>
+
+          {/* Mixer (pads tab can still use it) */}
+          <Mixer />
+
+          {/* Optional timeline — comment in if you want it on Pads page */}
+          {/* <TimelineMix /> */}
+
+          {me.plan === "FREE" && (
+            <div className="glass rounded-2xl p-5">
+              <Paywall title="Unlock higher upload limits, more banks, and longer recordings" />
+            </div>
           )}
         </div>
       </div>

@@ -44,6 +44,32 @@ model Sample {
   @@index([userId])
 }
 
+model Beat {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  bpm       Int      @default(120)
+  steps     Int      @default(16)  // number of columns in grid
+  pattern   Json                 // { tracks: [{ label, src?, rowIndex, steps: number[] }] }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model UserSound {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  src        String   // e.g. /sounds/user/<uid>/<file>.wav
+  kind       String   @default("BEAT") // 'BEAT' or 'SAMPLE'
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+
 enum Plan {
   FREE
   PRO
