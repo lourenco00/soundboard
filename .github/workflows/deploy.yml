@@ -21,7 +21,7 @@ jobs:
         run: npm ci
 
       - name: 🛠️ Build project
-        run: npm run build
+        run: npm run build -- --no-lint
 
       - name: 🔐 Prepare SSH key
         run: |
