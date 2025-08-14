@@ -21,7 +21,11 @@ jobs:
         run: npm ci
 
       - name: 🛠️ Build project
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
         run: npm run build -- --no-lint
+
 
       - name: 🔐 Prepare SSH key
         run: |

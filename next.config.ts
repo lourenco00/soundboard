@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // já estás a usar --no-lint no CI, mas deixo isto para garantir
+  eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true }, // disables eslint during build
 };
 
 module.exports = nextConfig;
