@@ -27,7 +27,11 @@ type Preset = { bankA: PadData[]; bankB: PadData[]; bankC: PadData[] };
 
 export default function Page() {
   const [me, setMe] = useState<Me>({ plan: "FREE" });
-  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+  // Default to "not authed" so we render Landing immediately; flip to true
+  // once /api/me confirms. This avoids a forever-loading screen if the API
+  // hangs (DB down, missing env var, etc.).
+  const [isAuthed, setIsAuthed] = useState<boolean>(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const [bank, setBank] = useState<"A" | "B" | "C">("A");
   const [banks, setBanks] = useState<Preset>({
@@ -42,11 +46,24 @@ export default function Page() {
   const [forgeQueue, setForgeQueue] = useState<{ name: string; src: string }[]>([]);
 
   useEffect(() => {
-    fetch("/api/entitlements").then(r => r.json()).then(setMe).catch(() => {});
-    fetch("/api/me")
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+
+    fetch("/api/entitlements", { signal: ctrl.signal, cache: "no-store" })
+      .then(r => r.json())
+      .then(setMe)
+      .catch(() => {});
+
+    fetch("/api/me", { signal: ctrl.signal, cache: "no-store" })
       .then(r => r.json())
       .then((d) => setIsAuthed(Boolean(d?.authenticated)))
-      .catch(() => setIsAuthed(false));
+      .catch(() => setIsAuthed(false))
+      .finally(() => {
+        clearTimeout(timer);
+        setAuthChecked(true);
+      });
+
+    return () => { clearTimeout(timer); ctrl.abort(); };
   }, []);
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -151,27 +168,19 @@ export default function Page() {
   const pads = currentBank();
   const totalAssigned = pads.filter(p => p.src).length;
 
-  // loading shell while we don't know auth yet
-  if (isAuthed === null) {
-    return (
-      <main className="min-h-screen">
-        <TopBar />
-        <div className="flex items-center justify-center py-32">
-          <div className="flex items-center gap-3 text-gray-400">
-            <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-            Loading studio…
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  // landing for unauthenticated visitors
+  // landing for unauthenticated visitors (also the default while auth is
+  // still being verified — better than a forever-spinner if the API stalls)
   if (!isAuthed) {
     return (
       <main className="min-h-screen">
         <TopBar />
         <Landing />
+        {!authChecked && (
+          <div className="fixed bottom-3 right-3 text-[10px] text-gray-500/70 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-violet-400/70 animate-pulse" />
+            Checking session…
+          </div>
+        )}
       </main>
     );
   }
