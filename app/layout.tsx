@@ -2,8 +2,13 @@ import "../styles/globals.css";
 import { ReactNode } from "react";
 
 export const metadata = {
-  title: "Soundboard Lab",
-  description: "Charge-worthy, clean soundboard with Pro features.",
+  title: "Soundboard Lab — The studio that fits in your browser",
+  description: "Pads, sequencer, piano, multitrack DAW, and AI-generated samples — the full production suite, in your browser. No installs. No friction.",
+  openGraph: {
+    title: "Soundboard Lab — The studio that fits in your browser",
+    description: "Pads, sequencer, piano, multitrack DAW, and AI-generated samples — all in your browser.",
+    images: ["/soundboardlab.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

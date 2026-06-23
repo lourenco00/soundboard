@@ -1,36 +1,33 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link"; // ✅ added
+import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import Pad, { PadData } from "@/components/Pad";
 import SampleList, { Group } from "@/components/SampleList";
 import Paywall from "@/components/Paywall";
 import BankTabs from "@/components/BankTabs";
 import Mixer from "@/components/Mixer";
-// import TimelineMix from "@/components/TimelineMix"; // (optional; not used in Mix tab per your request)
-// import DawMixer from "@/components/DawMixer"; // ❌ removed
+import Landing from "@/components/Landing";
 
 type Me = { plan: "FREE" | "PRO" };
 
 const BASE_PADS = (deck: "A" | "B"): PadData[] => [
-  { label: "Kick",  key: "a", deck },
-  { label: "Snare", key: "s", deck },
-  { label: "Hi-Hat",key: "d", deck },
-  { label: "Clap",  key: "f", deck },
-  { label: "Vox",   key: "g", deck },
-  { label: "Pad 6", key: "h", deck },
-  { label: "Pad 7", key: "j", deck },
-  { label: "Pad 8", key: "k", deck },
-  { label: "Pad 9", key: "l", deck },
+  { label: "Kick",   key: "a", deck },
+  { label: "Snare",  key: "s", deck },
+  { label: "Hi-Hat", key: "d", deck },
+  { label: "Clap",   key: "f", deck },
+  { label: "Vox",    key: "g", deck },
+  { label: "Pad 6",  key: "h", deck },
+  { label: "Pad 7",  key: "j", deck },
+  { label: "Pad 8",  key: "k", deck },
+  { label: "Pad 9",  key: "l", deck },
 ];
 
 type Preset = { bankA: PadData[]; bankB: PadData[]; bankC: PadData[] };
-type Tab = "pads" | "mix";
 
 export default function Page() {
   const [me, setMe] = useState<Me>({ plan: "FREE" });
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("pads");
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
 
   const [bank, setBank] = useState<"A" | "B" | "C">("A");
   const [banks, setBanks] = useState<Preset>({
@@ -41,8 +38,9 @@ export default function Page() {
   const [soloMap, setSoloMap] = useState<Record<string, boolean>>({});
   const anySolo = Object.values(soloMap).some(Boolean);
   const [quantize, setQuantize] = useState(0);
+  const [bpm, setBpm] = useState(124);
+  const [forgeQueue, setForgeQueue] = useState<{ name: string; src: string }[]>([]);
 
-  // plan + auth
   useEffect(() => {
     fetch("/api/entitlements").then(r => r.json()).then(setMe).catch(() => {});
     fetch("/api/me")
@@ -51,7 +49,6 @@ export default function Page() {
       .catch(() => setIsAuthed(false));
   }, []);
 
-  // grouped samples from manifest
   const [groups, setGroups] = useState<Group[]>([]);
   useEffect(() => {
     fetch("/samples.manifest.json")
@@ -60,7 +57,15 @@ export default function Page() {
       .catch(() => setGroups([]));
   }, []);
 
-  // seed bank A from common categories
+  // pick up AI Forge queue from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("sb_forge_queue");
+      if (raw) setForgeQueue(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  // seed bank A
   useEffect(() => {
     if (!groups.length) return;
     const pick = (needle: string) =>
@@ -77,7 +82,7 @@ export default function Page() {
     }));
   }, [groups]);
 
-  // MIDI trigger (unchanged)
+  // MIDI trigger
   useEffect(() => {
     if (!("requestMIDIAccess" in navigator)) return;
     (navigator as any).requestMIDIAccess().then((access: any) => {
@@ -114,7 +119,6 @@ export default function Page() {
     setSoloMap(prev => ({ ...prev, [key]: solo }));
   }
 
-  // presets
   function savePreset() { localStorage.setItem("sb_preset", JSON.stringify(banks)); }
   function loadPreset() { const raw = localStorage.getItem("sb_preset"); if (raw) try { setBanks(JSON.parse(raw)); } catch {} }
   function exportPreset() {
@@ -129,62 +133,88 @@ export default function Page() {
     f.text().then(t => setBanks(JSON.parse(t))).catch(() => {});
   }
 
+  // surface forge generations as a virtual "AI Forge" group at the top of the library
+  const forgeGroup: Group | null = forgeQueue.length
+    ? {
+        id: "forge",
+        name: "🤖 AI Forge",
+        items: forgeQueue.map((q, i) => ({
+          id: `forge-${i}`,
+          name: q.name,
+          src: q.src,
+          kind: "audio" as const,
+        })),
+      }
+    : null;
+  const allGroups: Group[] = forgeGroup ? [forgeGroup, ...groups] : groups;
+
   const pads = currentBank();
+  const totalAssigned = pads.filter(p => p.src).length;
+
+  // loading shell while we don't know auth yet
+  if (isAuthed === null) {
+    return (
+      <main className="min-h-screen">
+        <TopBar />
+        <div className="flex items-center justify-center py-32">
+          <div className="flex items-center gap-3 text-gray-400">
+            <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+            Loading studio…
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // landing for unauthenticated visitors
+  if (!isAuthed) {
+    return (
+      <main className="min-h-screen">
+        <TopBar />
+        <Landing />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen">
       <TopBar />
 
-      {/* Tabs */}
+      {/* Quick-action bar */}
       <div className="mx-auto max-w-7xl px-4 pt-5">
-        <div className="glass rounded-2xl p-2 flex items-center gap-2">
-          <button
-            className={`px-3 py-1.5 rounded-lg text-sm ${activeTab === "pads" ? "bg-white/15 text-white" : "text-gray-300 hover:bg-white/10"}`}
-            onClick={() => setActiveTab("pads")}
-          >
-            Pads
-          </button>
+        <div className="glass rounded-2xl p-3 flex items-center gap-2 flex-wrap">
+          <span className="px-3 py-1.5 rounded-lg text-sm bg-white/15 text-white flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Pads
+          </span>
+          <Link href="/daw" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">DAW</Link>
+          <Link href="/sequencer" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">Step Seq</Link>
+          <Link href="/piano" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">Piano</Link>
+          <Link href="/ai" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10 flex items-center gap-2">
+            AI Forge <span className="pro-badge">New</span>
+          </Link>
 
-          {/* Mix tab navigates to /mix */}
-          {isAuthed ? (
-            <>
-              <Link href="/daw" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">
-                DAW
-              </Link>
-              <Link href="/sequencer" className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10">
-                Step Seq
-              </Link>
-              <Link
-                href="/piano"
-                className="px-3 py-1.5 rounded-lg text-sm text-gray-300 hover:bg-white/10"
-              >
-                Piano
-              </Link>
-            </>
-          ) : (
-            <span className="ml-1 text-xs text-gray-400">
-              <Link href="/login" className="underline hover:text-gray-300">
-                DAW & Step Seq & Piano (log in to access)
-              </Link>
-            </span>
-          )}
+          <span className="ml-auto text-xs text-gray-400 hidden md:inline">
+            Tip — press <kbd className="font-mono bg-black/40 border border-white/15 rounded px-1 mx-0.5">A</kbd>
+            <kbd className="font-mono bg-black/40 border border-white/15 rounded px-1 mx-0.5">S</kbd>
+            <kbd className="font-mono bg-black/40 border border-white/15 rounded px-1 mx-0.5">D</kbd>
+            … <kbd className="font-mono bg-black/40 border border-white/15 rounded px-1 mx-0.5">L</kbd>
+          </span>
         </div>
       </div>
 
-      {/* Content */}
       <div className="mx-auto max-w-7xl px-4 py-6 grid grid-cols-12 gap-6">
-        {/* Sidebar Library (always shown) */}
+        {/* Sidebar Library */}
         <div className="col-span-12 lg:col-span-3 h-[74vh]">
-          <SampleList groups={groups} />
-          {/* Presets (visible on this page) */}
-          <div className="mt-4 glass rounded-2xl p-3 text-xs text-gray-500">
-            <div className="font-semibold text-gray-700 mb-2">Presets</div>
-            <div className="flex flex-wrap gap-2">
-              <button className="btn-ghost rounded-lg" onClick={savePreset}>Save</button>
-              <button className="btn-ghost rounded-lg" onClick={loadPreset}>Load</button>
-              <button className="btn-ghost rounded-lg" onClick={exportPreset}>Export</button>
-              <label className="btn-ghost rounded-lg cursor-pointer">
-                Import<input className="hidden" type="file" accept="application/json" onChange={importPreset} />
+          <SampleList groups={allGroups} />
+          <div className="mt-4 glass rounded-2xl p-3 text-xs text-gray-300">
+            <div className="font-semibold text-gray-100 mb-2">Presets</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="btn-ghost rounded-lg" onClick={savePreset}>💾 Save</button>
+              <button className="btn-ghost rounded-lg" onClick={loadPreset}>📂 Load</button>
+              <button className="btn-ghost rounded-lg" onClick={exportPreset}>⬇ Export</button>
+              <label className="btn-ghost rounded-lg cursor-pointer text-center">
+                ⬆ Import
+                <input className="hidden" type="file" accept="application/json" onChange={importPreset} />
               </label>
             </div>
           </div>
@@ -192,28 +222,45 @@ export default function Page() {
 
         {/* Main */}
         <div className="col-span-12 lg:col-span-9 space-y-6">
-          {/* Pads-only UI on the main page */}
-          <header className="glass rounded-2xl p-5 flex items-center justify-between">
-            <div>
-              <h1 className="text-xl md:text-2xl font-semibold">Soundboard Lab - Pads Mode</h1>
-              <p className="text-gray-500 text-sm mt-1">
-                Drag from Library; pads use keys A S D F G H J K L. MIDI supported.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <BankTabs bank={bank} setBank={setBank} />
-              <div className="text-sm text-gray-500 flex items-center gap-2">
-                <span>Quantize</span>
-                <select
-                  className="bg-white/80 rounded-md px-2 py-1"
-                  value={quantize}
-                  onChange={(e) => setQuantize(parseInt(e.target.value))}
-                >
-                  <option value={0}>Off</option>
-                  <option value={125}>1/8 (120bpm)</option>
-                  <option value={250}>1/4</option>
-                  <option value={500}>1/2</option>
-                </select>
+          {/* Studio header */}
+          <header className="glass-strong rounded-2xl p-5 relative overflow-hidden">
+            <div className="absolute -top-20 -right-16 w-72 h-72 rounded-full bg-violet-500/20 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -left-16 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl pointer-events-none" />
+            <div className="relative flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] uppercase tracking-widest text-violet-300 mb-1">Pads · Bank {bank}</div>
+                <h1 className="text-2xl font-bold">Studio</h1>
+                <p className="text-gray-400 text-sm mt-1">
+                  {totalAssigned}/9 pads loaded · Drag samples from the Library or generate with AI Forge.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <BankTabs bank={bank} setBank={setBank} />
+                <div className="glass rounded-xl px-3 py-2 flex items-center gap-3 text-sm">
+                  <span className="text-[10px] uppercase tracking-widest text-gray-400">BPM</span>
+                  <button
+                    className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-sm"
+                    onClick={() => setBpm(b => Math.max(60, b - 1))}
+                  >−</button>
+                  <span className="font-mono w-10 text-center">{bpm}</span>
+                  <button
+                    className="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-sm"
+                    onClick={() => setBpm(b => Math.min(220, b + 1))}
+                  >+</button>
+                </div>
+                <div className="glass rounded-xl px-3 py-2 text-sm flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-widest text-gray-400">Quantize</span>
+                  <select
+                    className="bg-transparent outline-none text-sm"
+                    value={quantize}
+                    onChange={(e) => setQuantize(parseInt(e.target.value))}
+                  >
+                    <option value={0}>Off</option>
+                    <option value={125}>1/8</option>
+                    <option value={250}>1/4</option>
+                    <option value={500}>1/2</option>
+                  </select>
+                </div>
               </div>
             </div>
           </header>
@@ -232,22 +279,19 @@ export default function Page() {
             ))}
           </section>
 
-          {/* Mixer (pads tab can still use it) */}
+          {/* Mixer */}
           <Mixer />
 
-          {/* Optional timeline — comment in if you want it on Pads page */}
-          {/* <TimelineMix /> */}
-
           {me.plan === "FREE" && (
-            <div className="glass rounded-2xl p-5">
-              <Paywall title="Unlock higher upload limits, more banks, and longer recordings" />
+            <div className="glass-strong rounded-2xl p-6">
+              <Paywall title="Unlock the full studio" />
             </div>
           )}
         </div>
       </div>
 
       <footer className="text-center text-[11px] text-gray-500 py-6">
-        Tip: use the crossfader with Deck A/B to blend banks or route specific pads.
+        Tip · use the crossfader with Deck A/B to blend banks or route specific pads.
       </footer>
     </main>
   );
