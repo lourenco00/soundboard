@@ -7,9 +7,14 @@ yarn-debug.log
 yarn-error.log
 .env
 .env.local
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
+
+# secrets / keys
+*.pem
+private_key.pem
 .vscode
 .idea
 # Build output
@@ -26,3 +31,6 @@ coverage
 logs
 *.log
 log
+
+# TS build cache
+*.tsbuildinfo

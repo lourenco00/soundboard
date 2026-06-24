@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe";
+import { handleStripeEvent } from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -22,23 +23,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // Handle a couple of core events
+  // Update DB entitlements. handleStripeEvent is the source of truth for
+  // user.plan and ignores event types it doesn't care about.
   try {
-    switch (event.type) {
-      case "checkout.session.completed":
-      case "customer.subscription.updated":
-      case "customer.subscription.created":
-      case "customer.subscription.deleted":
-        // TODO: update your DB entitlements based on event.data.object
-        break;
-      default:
-        // ignore others for now
-        break;
-    }
+    const handled = await handleStripeEvent(event);
+    return NextResponse.json({ received: true, handled });
   } catch (e) {
     console.error("Webhook handler error:", e);
+    // 500 → Stripe will retry the delivery
     return NextResponse.json({ received: true, handled: false }, { status: 500 });
   }
-
-  return NextResponse.json({ received: true });
 }

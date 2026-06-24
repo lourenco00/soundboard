@@ -1,5 +1,5 @@
 // lib/auth.ts
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { cookies, headers } from "next/headers";
 import { prisma } from "./db";
 import bcrypt from "bcrypt";
@@ -10,7 +10,7 @@ const SECRET = process.env.AUTH_JWT_SECRET!;
 export type Session = { uid: string };
 
 // ---------- tokens ----------
-export function createSessionToken(s: Session, ttl = "30d") {
+export function createSessionToken(s: Session, ttl: SignOptions["expiresIn"] = "30d") {
   return jwt.sign(s, SECRET, { expiresIn: ttl });
 }
 
