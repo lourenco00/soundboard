@@ -42,19 +42,6 @@ const FEATURES = [
   },
 ];
 
-const TESTIMONIALS = [
-  { name: "Jules R.", role: "Bedroom Producer", quote: "Replaced three apps in my workflow. The AI sample forge is genuinely insane.", avatar: "🦄" },
-  { name: "Marco V.", role: "Hip-Hop Engineer", quote: "I make a beat in 8 minutes flat. Soundboard Lab is what Ableton would build if it were born on the web.", avatar: "🎤" },
-  { name: "Aiko N.", role: "Streamer / VTuber", quote: "Drag, drop, smash a key, ship it to OBS. My chat thinks I have a real studio behind me.", avatar: "👾" },
-];
-
-const STATS = [
-  { value: "210k+", label: "Beats produced" },
-  { value: "12k", label: "Active creators" },
-  { value: "4.9★", label: "App rating" },
-  { value: "<8 min", label: "Avg. first beat" },
-];
-
 export default function Landing() {
   const [bpm, setBpm] = useState(124);
   useEffect(() => {
@@ -92,13 +79,13 @@ export default function Landing() {
             </a>
           </div>
 
-          {/* trust strip */}
-          <div className="mt-8 flex items-center gap-5 text-[11px] uppercase tracking-widest text-gray-500">
-            <span>Trusted by</span>
-            <span className="text-gray-300">SoundCloud</span>
-            <span className="text-gray-300">Splice</span>
-            <span className="text-gray-300">Twitch</span>
-            <span className="text-gray-300">YouTube</span>
+          {/* honest value strip */}
+          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] uppercase tracking-widest text-gray-500">
+            <span className="text-gray-300">No installs</span>
+            <span>·</span>
+            <span className="text-gray-300">Works in your browser</span>
+            <span>·</span>
+            <span className="text-gray-300">Free to start</span>
           </div>
         </div>
 
@@ -152,18 +139,6 @@ export default function Landing() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* STATS */}
-      <section className="mx-auto max-w-7xl px-4 pb-12">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {STATS.map(s => (
-            <div key={s.label} className="glass rounded-2xl p-5 text-center">
-              <div className="text-2xl md:text-3xl font-bold gradient-text">{s.value}</div>
-              <div className="text-xs uppercase tracking-widest text-gray-400 mt-1">{s.label}</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -242,26 +217,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
-      <section className="mx-auto max-w-7xl px-4 py-16">
-        <div className="text-center mb-10">
-          <div className="text-xs uppercase tracking-widest text-cyan-300 mb-3">Loved by creators</div>
-          <h2 className="text-3xl md:text-4xl font-bold">Producers ship more on Soundboard Lab.</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {TESTIMONIALS.map(t => (
-            <div key={t.name} className="glass rounded-2xl p-6">
-              <div className="text-3xl mb-3">{t.avatar}</div>
-              <p className="text-gray-200 leading-relaxed">"{t.quote}"</p>
-              <div className="mt-4 text-sm">
-                <div className="font-semibold">{t.name}</div>
-                <div className="text-gray-400">{t.role}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* PRICING */}
       <section id="pricing" className="mx-auto max-w-7xl px-4 py-16">
         <div className="text-center mb-10">
@@ -280,7 +235,7 @@ export default function Landing() {
           <div className="relative">
             <h2 className="text-3xl md:text-5xl font-bold">Ready to make some noise?</h2>
             <p className="mt-3 text-gray-300 max-w-xl mx-auto">
-              Join thousands of creators turning ideas into tracks on Soundboard Lab — your full studio, one URL away.
+              Turn an idea into a track without leaving your browser — your full studio, one URL away.
             </p>
             <div className="mt-7 flex justify-center gap-3 flex-wrap">
               <Link href="/signup" className="btn-primary rounded-xl px-6 py-3 text-base">

@@ -18,10 +18,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 📄 Write .env.production 
-        run: echo "${{ secrets.PROD_ENV_PRODUCTION }}" > .env.production
-             echo 'RESEND_FROM="Soundboard Lab <support@soundboardlab.com>"' >> .env.production
-
+      - name: 📄 Write .env.production
+        run: |
+          echo "${{ secrets.PROD_ENV_PRODUCTION }}" > .env.production
+          echo 'RESEND_FROM="Soundboard Lab <support@soundboardlab.com>"' >> .env.production
 
       - name: 📦 Install dependencies and build Soundboard locally
         env:
@@ -32,6 +32,7 @@ jobs:
           NEXT_PUBLIC_PUBLIC_URL: ${{ secrets.NEXT_PUBLIC_PUBLIC_URL }}
         run: |
           npm ci
+          npx prisma generate
           npm run build -- --no-lint
 
       - name: 🚀 Deploy Soundboard to Production Droplet
@@ -58,20 +59,24 @@ jobs:
             -e "ssh -i private_key.pem -o StrictHostKeyChecking=no" \
             .next/ $USERNAME@$HOST:$REMOTE_PATH/.next/
 
-          echo "🔹 Upload remaining project files..."
+          echo "🔹 Upload project files (incl. prisma schema + migrations)..."
           rsync -avz --exclude=node_modules --exclude=private_key.pem \
             -e "ssh -i private_key.pem -o StrictHostKeyChecking=no" \
-            public package.json package-lock.json .env.production \
+            public prisma package.json package-lock.json .env.production \
             $USERNAME@$HOST:$REMOTE_PATH
 
-          echo "🔹 Install production deps & restart Soundboard..."
+          echo "🔹 Install deps, run migrations & restart Soundboard..."
           ssh -o StrictHostKeyChecking=no -i private_key.pem $USERNAME@$HOST "
             cd $REMOTE_PATH &&
-            npm ci --omit=dev &&
+            cp -f .env.production .env &&
+            npm ci &&
+            npx prisma migrate deploy &&
+            npx prisma generate &&
             pm2 delete soundboard || true &&
-            PORT=3001 pm2 start npm --name soundboard -- run start &&
+            PORT=3001 pm2 start npm --name soundboard --update-env -- run start &&
             pm2 save
           "
 
       - name: 🧹 Clean up
-        run: rm private_key.pem
+        if: always()
+        run: rm -f private_key.pem
