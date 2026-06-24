@@ -2,29 +2,34 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
-const g: any = globalThis as any;
-if (!g.__PIANO_PRESETS__) g.__PIANO_PRESETS__ = [];
-if (!g.__PRESET_FOLDERS__) g.__PRESET_FOLDERS__ = []; // {id,name}
-
+// GET /api/presets → unified list of the user's step beats + piano presets,
+// plus their folders.
 export async function GET() {
-  try {
-    const { uid } = requireUser();
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ folders: [], items: [] });
 
-    const beats = await prisma.beat.findMany({
-      where: { userId: uid },
+  const [beats, pianos, folders] = await Promise.all([
+    prisma.beat.findMany({
+      where: { userId: user.id },
       select: { id: true, name: true, folder: true },
       orderBy: { name: "asc" },
-    });
+    }),
+    prisma.pianoPreset.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true, folder: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.presetFolder.findMany({
+      where: { userId: user.id },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
-    const pianos = (g.__PIANO_PRESETS__ as any[]).filter(p => p.userId === uid);
+  const items = [
+    ...beats.map(b => ({ id: b.id, name: b.name, kind: "step", folder: b.folder ?? null })),
+    ...pianos.map(p => ({ id: p.id, name: p.name, kind: "piano", folder: p.folder ?? null })),
+  ];
 
-    const items = [
-      ...beats.map(b => ({ id: b.id, name: b.name, kind: "step",  folder: b.folder || null })),
-      ...pianos.map(p => ({ id: p.id, name: p.name, kind: "piano", folder: p.folder || null })),
-    ];
-
-    return NextResponse.json({ folders: g.__PRESET_FOLDERS__, items });
-  } catch {
-    return NextResponse.json({ folders: [], items: [] });
-  }
+  return NextResponse.json({ folders, items });
 }

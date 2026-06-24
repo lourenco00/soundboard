@@ -2,29 +2,31 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
-const g: any = globalThis as any;
-if (!g.__PIANO_PRESETS__) g.__PIANO_PRESETS__ = [];
-if (!g.__PRESET_FOLDERS__) g.__PRESET_FOLDERS__ = []; // {id,name}
-
+// GET /api/preset-folders → the user's folders
 export async function GET() {
-  try {
-    const { uid } = requireUser();
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ folders: [] });
 
-    const beats = await prisma.beat.findMany({
-      where: { userId: uid },
-      select: { id: true, name: true, folder: true },
-      orderBy: { name: "asc" },
-    });
+  const folders = await prisma.presetFolder.findMany({
+    where: { userId: user.id },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
-    const pianos = (g.__PIANO_PRESETS__ as any[]).filter(p => p.userId === uid);
+  return NextResponse.json({ folders });
+}
 
-    const items = [
-      ...beats.map(b => ({ id: b.id, name: b.name, kind: "step",  folder: b.folder || null })),
-      ...pianos.map(p => ({ id: p.id, name: p.name, kind: "piano", folder: p.folder || null })),
-    ];
+// POST /api/preset-folders → create a folder
+export async function POST(req: Request) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    return NextResponse.json({ folders: g.__PRESET_FOLDERS__, items });
-  } catch {
-    return NextResponse.json({ folders: [], items: [] });
-  }
+  const body = await req.json();
+  const name = (body?.name || "").trim();
+  if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+
+  const folder = await prisma.presetFolder.create({
+    data: { userId: user.id, name },
+  });
+  return NextResponse.json({ id: folder.id, name: folder.name }, { status: 201 });
 }

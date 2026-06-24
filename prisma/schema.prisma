@@ -48,11 +48,33 @@ model Beat {
   id        String   @id @default(cuid())
   userId    String
   name      String
+  folder    String?              // optional folder grouping
   bpm       Int      @default(120)
   steps     Int      @default(16)  // number of columns in grid
   pattern   Json                 // { tracks: [{ label, src?, rowIndex, steps: number[] }] }
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model PianoPreset {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  folder    String?
+  data      Json                 // full preset payload from the client
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model PresetFolder {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }

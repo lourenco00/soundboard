@@ -1,30 +1,32 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-
-const g: any = globalThis as any;
-if (!g.__PIANO_PRESETS__) g.__PIANO_PRESETS__ = [];
 
 export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  try {
-    const { uid } = requireUser();
-    const p = (g.__PIANO_PRESETS__ as any[]).find(x => x.id === id && x.userId === uid);
-    if (!p) return new NextResponse("Not found", { status: 404 });
-    return NextResponse.json(p);
-  } catch {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const user = await requireUser();
+  if (!user) return new NextResponse("Unauthorized", { status: 401 });
+
+  const row = await prisma.pianoPreset.findFirst({
+    where: { id, userId: user.id },
+  });
+  if (!row) return new NextResponse("Not found", { status: 404 });
+
+  return NextResponse.json({
+    ...(row.data as object),
+    id: row.id,
+    name: row.name,
+    folder: row.folder ?? null,
+  });
 }
 
 export async function DELETE(_req: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  try {
-    const { uid } = requireUser();
-    const before = g.__PIANO_PRESETS__.length;
-    g.__PIANO_PRESETS__ = g.__PIANO_PRESETS__.filter((x: any) => !(x.id === id && x.userId === uid));
-    const ok = g.__PIANO_PRESETS__.length !== before;
-    return NextResponse.json({ ok });
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const deleted = await prisma.pianoPreset.deleteMany({
+    where: { id, userId: user.id },
+  });
+  return NextResponse.json({ ok: deleted.count > 0 });
 }

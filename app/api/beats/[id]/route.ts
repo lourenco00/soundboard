@@ -6,10 +6,11 @@ import { requireUser } from "@/lib/auth";
 export async function GET(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;          // ← await params
-    const { uid } = requireUser();
+    const user = await requireUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const beat = await prisma.beat.findFirst({
-      where: { id, userId: uid },
+      where: { id, userId: user.id },
     });
 
     if (!beat) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -23,17 +24,19 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;          // ← await params
-    const { uid } = requireUser();
+    const user = await requireUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
 
     // Safer update: constrain by both id & userId so you can’t change another user’s beat
     const updated = await prisma.beat.updateMany({
-      where: { id, userId: uid },
+      where: { id, userId: user.id },
       data: {
         name: body.name,
         bpm: body.bpm,
         steps: body.steps,
         pattern: body.pattern,
+        ...(body.folder !== undefined ? { folder: body.folder } : {}),
       },
     });
 
@@ -52,11 +55,12 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
 export async function DELETE(_req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;          // ← await params
-    const { uid } = requireUser();
+    const user = await requireUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // Delete guarded by userId
     const deleted = await prisma.beat.deleteMany({
-      where: { id, userId: uid },
+      where: { id, userId: user.id },
     });
 
     if (deleted.count === 0) {
