@@ -1,7 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import { getAudioContext, getMaster } from "@/lib/audio";
+import { renderPatch, bufferToWav } from "@/lib/forge/render";
+import type { ForgePatch } from "@/lib/forge/patch";
 
 type Gen = {
   id: string;
@@ -11,6 +13,10 @@ type Gen = {
   key: string;
   durationMs: number;
   buffer: AudioBuffer;
+  patch: ForgePatch;
+  source: "ai" | "fallback";
+  provider: string | null;
+  model: string | null;
   createdAt: number;
 };
 
@@ -35,7 +41,11 @@ const PROMPT_IDEAS = [
 ];
 
 const KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const SCALE_MAJOR = [0, 2, 4, 5, 7, 9, 11];
+
+const PROVIDER_LABELS: Record<string, string> = {
+  claude: "Claude",
+  openai: "OpenAI",
+};
 
 export default function AIForgePage() {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -46,40 +56,70 @@ export default function AIForgePage() {
   const [duration, setDuration] = useState(1200);
   const [intensity, setIntensity] = useState(0.7);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [gens, setGens] = useState<Gen[]>([]);
-  const [remaining, setRemaining] = useState<number>(200);
+
+  const [providers, setProviders] = useState<string[]>([]);
+  const [provider, setProvider] = useState<"auto" | "claude" | "openai">("auto");
 
   useEffect(() => {
     fetch("/api/me")
       .then(r => r.json())
       .then(d => setAuthed(!!d?.authenticated))
       .catch(() => setAuthed(false));
+    fetch("/api/forge")
+      .then(r => r.json())
+      .then(d => setProviders(Array.isArray(d?.providers) ? d.providers : []))
+      .catch(() => setProviders([]));
   }, []);
 
   async function generate() {
     if (busy) return;
     setBusy(true);
+    setError(null);
     try {
       const ac = getAudioContext();
       await getMaster();
-      const buffer = await synthesizeSample({
-        ac,
-        preset,
-        durationMs: duration,
-        bpm,
-        keyRoot,
-        intensity,
-        promptHash: hash(prompt),
+
+      const res = await fetch("/api/forge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt, preset, bpm, keyRoot, durationMs: duration, intensity, provider,
+        }),
       });
+
+      if (res.status === 401) {
+        setAuthed(false);
+        setError("Sign in to forge sounds.");
+        return;
+      }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d?.error || "Generation failed.");
+        return;
+      }
+
+      const data = await res.json();
+      const patch: ForgePatch = data.patch;
+      const buffer = await renderPatch(ac, patch);
+
       const id = Math.random().toString(36).slice(2, 9);
       setGens(prev => [
-        { id, prompt, preset, bpm, key: keyRoot, durationMs: duration, buffer, createdAt: Date.now() },
+        {
+          id, prompt, preset, bpm, key: keyRoot, durationMs: patch.durationMs,
+          buffer, patch,
+          source: data.source === "ai" ? "ai" : "fallback",
+          provider: data.provider ?? null,
+          model: data.model ?? null,
+          createdAt: Date.now(),
+        },
         ...prev,
       ]);
-      setRemaining(r => Math.max(0, r - 1));
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong.");
     } finally {
-      // small UI breathing room
-      setTimeout(() => setBusy(false), 300);
+      setBusy(false);
     }
   }
 
@@ -105,7 +145,6 @@ export default function AIForgePage() {
   }
 
   function sendToPads(g: Gen) {
-    // encode WAV to a data URL and drop it into a localStorage queue the studio page can pick up
     const wav = bufferToWav(g.buffer);
     const blob = new Blob([wav], { type: "audio/wav" });
     const reader = new FileReader();
@@ -118,6 +157,8 @@ export default function AIForgePage() {
     reader.readAsDataURL(blob);
   }
 
+  const hasAI = providers.length > 0;
+
   return (
     <main className="min-h-screen">
       <TopBar />
@@ -127,12 +168,15 @@ export default function AIForgePage() {
             <div className="text-xs uppercase tracking-widest text-violet-300 mb-1">AI Sample Forge</div>
             <h1 className="text-3xl md:text-4xl font-bold">Type a vibe. <span className="gradient-text">Get a stem.</span></h1>
             <p className="text-gray-400 mt-2 max-w-2xl">
-              Describe what you want — Soundboard Lab synthesizes a sample on-device. Bounce to WAV, or drop into the pads.
+              An AI reads your description and designs a synthesis patch — oscillators, envelopes, filters, drive.
+              Your browser renders it to audio. Different words, different sound.
             </p>
           </div>
           <div className="glass rounded-xl px-4 py-3 text-sm">
-            <div className="text-[10px] uppercase tracking-widest text-gray-400">Quota this month</div>
-            <div className="font-semibold text-lg">{remaining} <span className="text-gray-500 text-sm font-normal">/ 200</span></div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400">Engine</div>
+            <div className="font-semibold text-lg">
+              {hasAI ? providers.map(p => PROVIDER_LABELS[p] || p).join(" + ") : "On-device"}
+            </div>
           </div>
         </div>
 
@@ -140,8 +184,15 @@ export default function AIForgePage() {
           <div className="glass rounded-2xl p-6 mb-6 border border-amber-300/20">
             <div className="font-semibold mb-1">Heads up — you're not logged in.</div>
             <p className="text-sm text-gray-400">
-              You can preview the Forge here. <a href="/signup" className="text-violet-300 underline">Sign up free</a> to save and reuse generations.
+              The Forge needs an account to run. <a href="/signup" className="text-violet-300 underline">Sign up free</a> to start generating.
             </p>
+          </div>
+        )}
+
+        {!hasAI && (
+          <div className="glass rounded-2xl p-4 mb-6 border border-white/10 text-sm text-gray-400">
+            No AI provider key is configured on the server, so the Forge is using its built-in prompt-driven synth.
+            Set <code className="text-violet-300">ANTHROPIC_API_KEY</code> or <code className="text-violet-300">OPENAI_API_KEY</code> to enable real AI generation.
           </div>
         )}
 
@@ -230,6 +281,41 @@ export default function AIForgePage() {
               </div>
             </div>
 
+            {hasAI && providers.length > 0 && (
+              <div className="mt-6">
+                <label className="text-xs uppercase tracking-widest text-gray-400">AI model</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {providers.length > 1 && (
+                    <button
+                      onClick={() => setProvider("auto")}
+                      className={`text-sm px-3 py-1.5 rounded-lg border ${
+                        provider === "auto" ? "glass-strong gradient-border" : "glass border-white/10 hover:bg-white/[.07]"
+                      }`}
+                    >
+                      Auto
+                    </button>
+                  )}
+                  {providers.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setProvider(p as "claude" | "openai")}
+                      className={`text-sm px-3 py-1.5 rounded-lg border ${
+                        provider === p ? "glass-strong gradient-border" : "glass border-white/10 hover:bg-white/[.07]"
+                      }`}
+                    >
+                      {PROVIDER_LABELS[p] || p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="mt-4 text-sm text-amber-300/90 bg-amber-400/10 border border-amber-300/20 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
+
             <button
               disabled={busy}
               onClick={generate}
@@ -267,9 +353,20 @@ export default function AIForgePage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-xs text-gray-400 uppercase tracking-widest truncate">
-                        {g.preset} · {g.key} · {g.bpm}bpm · {(g.durationMs / 1000).toFixed(1)}s
+                        {g.preset} · {g.key} · {g.bpm}bpm · {(g.durationMs / 1000).toFixed(1)}s · {g.patch.layers.length} layers
                       </div>
                       <div className="text-sm font-medium truncate">{g.prompt}</div>
+                      <div className="mt-1">
+                        {g.source === "ai" ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-200 border border-violet-400/20">
+                            {PROVIDER_LABELS[g.provider || ""] || g.provider} · {g.model}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 border border-white/10">
+                            on-device synth
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <button onClick={() => playBuffer(g.buffer)} className="btn-ghost rounded-md px-2 py-1 text-sm" title="Play">▶</button>
@@ -284,185 +381,9 @@ export default function AIForgePage() {
         </div>
 
         <p className="text-xs text-gray-500 text-center mt-8">
-          Forge synthesizes audio fully on-device — no audio leaves your browser.
+          Only your text prompt is sent to the AI. The audio itself is synthesized on-device from the AI's patch — no audio leaves your browser.
         </p>
       </div>
     </main>
   );
-}
-
-/* ------------------ procedural synthesis ------------------ */
-
-type SynthOpts = {
-  ac: AudioContext;
-  preset: string;
-  durationMs: number;
-  bpm: number;
-  keyRoot: string;
-  intensity: number;
-  promptHash: number;
-};
-
-function hash(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-function noteFreq(root: string, semitoneOffset: number) {
-  const idx = KEYS.indexOf(root);
-  const midi = 60 + idx + semitoneOffset;
-  return 440 * Math.pow(2, (midi - 69) / 12);
-}
-
-async function synthesizeSample(opts: SynthOpts): Promise<AudioBuffer> {
-  const { ac, preset, durationMs, intensity, promptHash, keyRoot } = opts;
-  const sampleRate = ac.sampleRate;
-  const length = Math.floor((durationMs / 1000) * sampleRate);
-  const buf = ac.createBuffer(2, length, sampleRate);
-  const L = buf.getChannelData(0);
-  const R = buf.getChannelData(1);
-
-  const seed = promptHash;
-  const rand = mulberry32(seed);
-
-  const rootFreq = noteFreq(keyRoot, 0);
-
-  for (let i = 0; i < length; i++) {
-    const t = i / sampleRate;
-    const tn = i / length;
-    let v = 0;
-
-    switch (preset) {
-      case "kick": {
-        const pitch = 120 * Math.exp(-tn * 35) + 50;
-        const env = Math.exp(-tn * 6);
-        v = Math.sin(2 * Math.PI * pitch * t) * env;
-        v += (rand() * 2 - 1) * 0.2 * Math.exp(-tn * 60);
-        break;
-      }
-      case "snare": {
-        const noise = rand() * 2 - 1;
-        const env = Math.exp(-tn * 9);
-        const tone = Math.sin(2 * Math.PI * 200 * t) * Math.exp(-tn * 18) * 0.5;
-        v = (noise * 0.8 + tone) * env;
-        break;
-      }
-      case "hat": {
-        const noise = rand() * 2 - 1;
-        const env = Math.exp(-tn * (12 + intensity * 18));
-        v = noise * env * 0.8;
-        // band emphasis around 8k via fake comb
-        v += Math.sin(2 * Math.PI * 7800 * t) * 0.05 * env;
-        break;
-      }
-      case "bass": {
-        const f = rootFreq / 2;
-        const env = Math.exp(-tn * 1.6);
-        v = (Math.sin(2 * Math.PI * f * t) + Math.sin(2 * Math.PI * f * 2 * t) * 0.3) * env;
-        v += Math.sign(Math.sin(2 * Math.PI * f * t)) * 0.15 * env;
-        break;
-      }
-      case "lead": {
-        const f = rootFreq * 2;
-        const detune = 1 + Math.sin(t * 6) * 0.005;
-        const env = Math.exp(-tn * 1.2);
-        v = (saw(f * t) * 0.4 + saw(f * detune * t) * 0.4 + Math.sin(2 * Math.PI * f * t) * 0.2) * env;
-        break;
-      }
-      case "pad": {
-        const env = Math.sin(Math.min(1, tn * 4) * Math.PI / 2) * Math.exp(-tn * 0.6);
-        let sum = 0;
-        for (let n = 0; n < 5; n++) {
-          const semi = SCALE_MAJOR[n % SCALE_MAJOR.length];
-          const f = noteFreq(keyRoot, semi - 12);
-          sum += Math.sin(2 * Math.PI * f * t) * 0.18;
-        }
-        v = sum * env;
-        break;
-      }
-      case "vox": {
-        const f = rootFreq * 1.5;
-        const wob = 1 + Math.sin(t * 4) * 0.02;
-        const env = Math.exp(-tn * 2);
-        v = (Math.sin(2 * Math.PI * f * wob * t) * 0.6 + Math.sin(2 * Math.PI * f * 2 * t) * 0.3) * env;
-        v += (rand() * 2 - 1) * 0.05 * env;
-        break;
-      }
-      case "fx": {
-        const f = 200 + (1 - Math.exp(-tn * 2)) * 4000;
-        const env = Math.sin(tn * Math.PI);
-        v = saw(f * t) * 0.3 * env + (rand() * 2 - 1) * 0.2 * env;
-        break;
-      }
-      default:
-        v = (rand() * 2 - 1) * Math.exp(-tn * 4);
-    }
-
-    const gain = 0.4 + intensity * 0.55;
-    const pan = Math.sin(tn * Math.PI * 2) * 0.15;
-    L[i] = clamp(v * gain * (1 - pan), -1, 1);
-    R[i] = clamp(v * gain * (1 + pan), -1, 1);
-  }
-
-  // tiny fade-out to avoid clicks
-  const fade = Math.min(length, 1024);
-  for (let i = 0; i < fade; i++) {
-    const k = 1 - i / fade;
-    L[length - 1 - i] *= k;
-    R[length - 1 - i] *= k;
-  }
-
-  // pretend we took some thinking time
-  await new Promise(res => setTimeout(res, 650 + (promptHash % 500)));
-  return buf;
-}
-
-function mulberry32(a: number) {
-  return function () {
-    let t = (a += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function saw(x: number) {
-  const f = x - Math.floor(x);
-  return f * 2 - 1;
-}
-function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
-
-/* ------------------ WAV encoder ------------------ */
-function bufferToWav(buf: AudioBuffer): ArrayBuffer {
-  const numCh = buf.numberOfChannels;
-  const sr = buf.sampleRate;
-  const len = buf.length;
-  const data = new Float32Array(len * numCh);
-  for (let ch = 0; ch < numCh; ch++) {
-    const src = buf.getChannelData(ch);
-    for (let i = 0; i < len; i++) data[i * numCh + ch] = src[i];
-  }
-
-  const bytesPerSample = 2;
-  const blockAlign = numCh * bytesPerSample;
-  const byteRate = sr * blockAlign;
-  const dataSize = data.length * bytesPerSample;
-  const ab = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(ab);
-
-  let p = 0;
-  function ws(s: string) { for (let i = 0; i < s.length; i++) view.setUint8(p++, s.charCodeAt(i)); }
-  function w32(n: number) { view.setUint32(p, n, true); p += 4; }
-  function w16(n: number) { view.setUint16(p, n, true); p += 2; }
-
-  ws("RIFF"); w32(36 + dataSize); ws("WAVE");
-  ws("fmt "); w32(16); w16(1); w16(numCh); w32(sr); w32(byteRate); w16(blockAlign); w16(16);
-  ws("data"); w32(dataSize);
-
-  for (let i = 0; i < data.length; i++) {
-    const s = Math.max(-1, Math.min(1, data[i]));
-    view.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-    p += 2;
-  }
-  return ab;
 }
