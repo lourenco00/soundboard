@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import TopBar from "@/components/TopBar";
-import PianoRoll, { Sample, PianoPreset } from "@/components/instruments/PianoRoll";
+import PianoRoll, { Sample as PianoSample, PianoPreset } from "@/components/instruments/PianoRoll";
+import SampleList, { Group as LibGroup, Sample as LibSample } from "@/components/SampleList";
 
 // Avoid prerender for search params-driven UI
 export const dynamic = "force-dynamic";
@@ -19,51 +20,92 @@ export default function PianoPage() {
 
 function PianoClient() {
   const sp = useSearchParams();
-  const [samples, setSamples] = useState<Sample[]>([]);
+
+  // audio samples for the piano sampler
+  const [samples, setSamples] = useState<PianoSample[]>([]);
+  // saved piano presets
   const [presets, setPresets] = useState<PianoPreset[]>([]);
   const [selected, setSelected] = useState<PianoPreset | null>(null);
 
+  // initial data
   useEffect(() => {
     (async () => {
       try {
         const base = await fetch("/samples.manifest.json").then(r => r.json());
-        const cats = (base?.categories ?? []) as { items: Sample[] }[];
+        const cats = (base?.categories ?? []) as { items: PianoSample[] }[];
         const mine = await fetch("/api/my-sounds").then(r => (r.ok ? r.json() : []));
-        const flat = [
+        const flat: PianoSample[] = [
           ...(mine?.map((s: any) => ({ id: s.id, name: s.name, src: s.src })) ?? []),
           ...cats.flatMap((g) => g.items),
         ];
         setSamples(flat);
       } catch { setSamples([]); }
     })();
-    fetch("/api/piano-presets").then(r=>r.ok?r.json():[]).then(setPresets).catch(()=>setPresets([]));
+    refreshPresets().catch(()=>{});
   }, []);
 
   // open by URL (?preset=ID)
   useEffect(() => {
     const id = sp.get("preset");
     if (!id) return;
-    (async () => {
-      const r = await fetch(`/api/piano-presets/${id}`);
-      if (r.ok) setSelected(await r.json());
-    })();
+    openPreset(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
 
+  async function refreshPresets() {
+    const list = await fetch("/api/piano-presets").then(r=>r.ok?r.json():[]);
+    setPresets(list ?? []);
+  }
+
+  async function openPreset(id: string) {
+    const r = await fetch(`/api/piano-presets/${id}`);
+    if (r.ok) setSelected(await r.json());
+  }
+
   async function savePreset(p: PianoPreset) {
-    await fetch("/api/piano-presets", {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(p),
+    const res = await fetch("/api/piano-presets", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(p),
     });
-    setPresets(await fetch("/api/piano-presets").then(x=>x.json()));
+    if (!res.ok) {
+      alert("Could not save preset. Please try again.");
+      return;
+    }
+    await refreshPresets();
+    // auto-select the newly saved preset
+    setSelected(p);
   }
 
   async function deletePreset(id: string) {
-    if (!confirm("Delete this preset?")) return;
     const r = await fetch(`/api/piano-presets/${id}`, { method: "DELETE" });
     if (r.ok) {
-      setPresets(await fetch("/api/piano-presets").then(x=>x.json()));
+      await refreshPresets();
       if (selected?.id === id) setSelected(null);
     }
   }
+
+  // ---- Side list groups (Audio Library + Piano Presets) ----
+  const sideGroups: LibGroup[] = useMemo(() => {
+    const audioItems: LibSample[] = (samples ?? []).map(s => ({
+      id: s.id,
+      name: s.name,
+      src: s.src,
+      kind: "audio",
+    }));
+
+    const presetItems: LibSample[] = (presets ?? []).map(p => ({
+      id: p.id,
+      name: p.name,
+      kind: "piano",
+      // no src needed; clicking will open the preset
+    }));
+
+    return [
+      { id: "audio", name: "Samples", items: audioItems },
+      { id: "piano-presets", name: "Piano Presets", items: presetItems },
+    ];
+  }, [samples, presets]);
 
   return (
     <main className="min-h-screen">
@@ -79,28 +121,30 @@ function PianoClient() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 py-6">
-        {/* quick preset chips with delete */}
-        {presets.length > 0 && (
-          <div className="glass rounded-2xl p-3 mb-4">
-            <div className="text-sm text-gray-300 mb-2">My Piano Presets</div>
-            <div className="flex flex-wrap gap-2">
-              {presets.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1">
-                  <button className="text-sm hover:underline" onClick={() => setSelected(p)}>{p.name}</button>
-                  <span className="text-[11px] text-gray-500">• {p.sample?.name || "sample"} • {p.baseNote || "C4"}</span>
-                  <button className="ml-2 text-red-400 hover:text-red-500" onClick={() => deletePreset(p.id)}>✕</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      <div className="mx-auto max-w-7xl px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* LEFT: side library */}
+        <div className="lg:col-span-4 xl:col-span-3 min-h-[480px]">
+          <SampleList
+            groups={sideGroups}
+            defaultOpen
+            onOpenPiano={(id) => openPreset(id)}
+            onDeletePreset={(kind, id) => {
+              if (kind !== "piano") return;
+              if (!confirm("Delete this piano preset?")) return;
+              deletePreset(id);
+            }}
+          />
+        </div>
 
-        <PianoRoll
-          samples={samples}
-          initialPreset={selected || undefined}
-          onSavePreset={savePreset}
-        />
+        {/* RIGHT: piano roll/sampler */}
+        <div className="lg:col-span-8 xl:col-span-9">
+          {/* Presets are listed in the side Library ("Piano Presets" group). */}
+          <PianoRoll
+            samples={samples}
+            initialPreset={selected || undefined}
+            onSavePreset={savePreset}
+          />
+        </div>
       </div>
     </main>
   );

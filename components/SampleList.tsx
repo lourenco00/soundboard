@@ -16,11 +16,13 @@ export default function SampleList({
   onOpenStep,
   onOpenPiano,
   onDeletePreset,
+  defaultOpen = false,
 }: {
   groups: Group[];
   onOpenStep?: (id: string) => void;
   onOpenPiano?: (id: string) => void;
   onDeletePreset?: (kind: "step" | "piano", id: string) => void;
+  defaultOpen?: boolean;
 }) {
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -68,7 +70,7 @@ export default function SampleList({
 
       <div className="overflow-y-auto min-h-0 flex-1 pr-0.5 space-y-3">
         {filtered.map(group => {
-          const isOpen = expanded[group.id] ?? false;
+          const isOpen = expanded[group.id] ?? defaultOpen;
           return (
             <div key={group.id}>
               <div
