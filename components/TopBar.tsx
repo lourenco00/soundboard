@@ -114,6 +114,7 @@ export default function TopBar() {
                   </div>
                   <Link href="/" className="block px-3 py-2 rounded-md hover:bg-white/10 mt-1">Studio</Link>
                   <Link href="/ai" className="block px-3 py-2 rounded-md hover:bg-white/10">AI Forge</Link>
+                  <Link href="/account" className="block px-3 py-2 rounded-md hover:bg-white/10">Settings</Link>
                   <button onClick={logout} className="w-full text-left px-3 py-2 rounded-md hover:bg-white/10 text-rose-300">
                     Log out
                   </button>

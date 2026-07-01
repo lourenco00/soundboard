@@ -1,16 +1,18 @@
 // app/api/forge/route.ts
 // Turns a text prompt into a synthesis patch using a real LLM. Supports two
-// providers via server-side keys:
-//   - Claude  → ANTHROPIC_API_KEY  (official @anthropic-ai/sdk)
-//   - OpenAI  → OPENAI_API_KEY     (official openai sdk)
+// providers, each resolvable from either the signed-in user's own stored key
+// (Settings → AI Forge API keys) or a server-side fallback key:
+//   - Claude  → user key, else ANTHROPIC_API_KEY  (official @anthropic-ai/sdk)
+//   - OpenAI  → user key, else OPENAI_API_KEY      (official openai sdk)
 // The model reads the words in the prompt and emits patch JSON, so every
-// prompt produces a genuinely different sound. If no provider is configured
-// (or the call fails), we fall back to a prompt-keyword heuristic so the Forge
-// still varies its output.
+// prompt produces a genuinely different sound. If no key is available for the
+// chosen provider (or the call fails), we fall back to a prompt-keyword
+// heuristic so the Forge still varies its output.
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { requireUserOrThrow } from "@/lib/auth";
+import { requireUser, requireUserOrThrow } from "@/lib/auth";
+import { decryptSecret } from "@/lib/crypto";
 import {
   parsePatch,
   heuristicPatch,
@@ -22,12 +24,23 @@ const CLAUDE_MODEL = process.env.FORGE_CLAUDE_MODEL || "claude-opus-4-8";
 const OPENAI_MODEL = process.env.FORGE_OPENAI_MODEL || "gpt-4o";
 
 type Provider = "claude" | "openai";
+type KeySource = "user" | "server";
 
-function configuredProviders(): Provider[] {
-  const list: Provider[] = [];
-  if (process.env.ANTHROPIC_API_KEY) list.push("claude");
-  if (process.env.OPENAI_API_KEY) list.push("openai");
-  return list;
+/** Resolve which key (if any) is usable for a provider, and where it came from. */
+function resolveKey(
+  provider: Provider,
+  user: { anthropicKeyEnc?: string | null; openaiKeyEnc?: string | null } | null
+): { apiKey: string; source: KeySource } | null {
+  const encrypted = provider === "claude" ? user?.anthropicKeyEnc : user?.openaiKeyEnc;
+  if (encrypted) {
+    try {
+      return { apiKey: decryptSecret(encrypted), source: "user" };
+    } catch (e) {
+      console.error(`[forge] failed to decrypt stored ${provider} key:`, e);
+    }
+  }
+  const serverKey = provider === "claude" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY;
+  return serverKey ? { apiKey: serverKey, source: "server" } : null;
 }
 
 const SYSTEM_PROMPT = `You are a sound-design engine for a browser synthesizer. Given a short text
@@ -93,8 +106,8 @@ function extractJson(text: string): unknown {
   throw new Error("Unbalanced JSON in model output");
 }
 
-async function generateWithClaude(req: ForgeRequest): Promise<ForgePatch> {
-  const client = new Anthropic();
+async function generateWithClaude(req: ForgeRequest, apiKey: string): Promise<ForgePatch> {
+  const client = new Anthropic({ apiKey });
   const res = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 1500,
@@ -109,8 +122,8 @@ async function generateWithClaude(req: ForgeRequest): Promise<ForgePatch> {
   return parsePatch(extractJson(text));
 }
 
-async function generateWithOpenAI(req: ForgeRequest): Promise<ForgePatch> {
-  const client = new OpenAI();
+async function generateWithOpenAI(req: ForgeRequest, apiKey: string): Promise<ForgePatch> {
+  const client = new OpenAI({ apiKey });
   const res = await client.chat.completions.create({
     model: OPENAI_MODEL,
     response_format: { type: "json_object" },
@@ -123,14 +136,25 @@ async function generateWithOpenAI(req: ForgeRequest): Promise<ForgePatch> {
   return parsePatch(extractJson(text));
 }
 
-/** GET → which providers the server can use, so the UI can offer them. */
+/** GET → which providers are usable right now (server key and/or the signed-in user's own key). */
 export async function GET() {
-  return NextResponse.json({ providers: configuredProviders() });
+  const user = await requireUser(); // non-throwing; null if not signed in
+  const claudeKey = resolveKey("claude", user);
+  const openaiKey = resolveKey("openai", user);
+
+  return NextResponse.json({
+    // Kept for backward compatibility with the current Forge UI.
+    providers: [claudeKey && "claude", openaiKey && "openai"].filter(Boolean),
+    detail: {
+      claude: { available: !!claudeKey, source: claudeKey?.source ?? null },
+      openai: { available: !!openaiKey, source: openaiKey?.source ?? null },
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    await requireUserOrThrow();
+    const user = await requireUserOrThrow();
     const body = await req.json();
 
     const forgeReq: ForgeRequest = {
@@ -146,7 +170,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    const available = configuredProviders();
+    const resolved: Partial<Record<Provider, { apiKey: string; source: KeySource }>> = {
+      claude: resolveKey("claude", user) ?? undefined,
+      openai: resolveKey("openai", user) ?? undefined,
+    };
+    const available = (["claude", "openai"] as Provider[]).filter((p) => resolved[p]);
     const requested = body?.provider as Provider | "auto" | undefined;
 
     let provider: Provider | null = null;
@@ -157,15 +185,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (provider) {
+      const key = resolved[provider]!;
       try {
         const patch =
           provider === "claude"
-            ? await generateWithClaude(forgeReq)
-            : await generateWithOpenAI(forgeReq);
+            ? await generateWithClaude(forgeReq, key.apiKey)
+            : await generateWithOpenAI(forgeReq, key.apiKey);
         return NextResponse.json({
           patch,
           provider,
           model: provider === "claude" ? CLAUDE_MODEL : OPENAI_MODEL,
+          keySource: key.source,
           source: "ai",
         });
       } catch (e: any) {
@@ -178,6 +208,7 @@ export async function POST(req: NextRequest) {
       patch: heuristicPatch(forgeReq),
       provider: null,
       model: null,
+      keySource: null,
       source: "fallback",
       reason: available.length === 0 ? "no-provider-configured" : "ai-error",
     });

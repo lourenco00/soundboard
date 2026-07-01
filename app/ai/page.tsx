@@ -17,6 +17,7 @@ type Gen = {
   source: "ai" | "fallback";
   provider: string | null;
   model: string | null;
+  keySource: "user" | "server" | null;
   createdAt: number;
 };
 
@@ -112,6 +113,7 @@ export default function AIForgePage() {
           source: data.source === "ai" ? "ai" : "fallback",
           provider: data.provider ?? null,
           model: data.model ?? null,
+          keySource: data.keySource ?? null,
           createdAt: Date.now(),
         },
         ...prev,
@@ -182,17 +184,17 @@ export default function AIForgePage() {
 
         {authed === false && (
           <div className="glass rounded-2xl p-6 mb-6 border border-amber-300/20">
-            <div className="font-semibold mb-1">Heads up — you're not logged in.</div>
+            <div className="font-semibold mb-1">Heads up — you&rsquo;re not logged in.</div>
             <p className="text-sm text-gray-400">
               The Forge needs an account to run. <a href="/signup" className="text-violet-300 underline">Sign up free</a> to start generating.
             </p>
           </div>
         )}
 
-        {!hasAI && (
+        {authed && !hasAI && (
           <div className="glass rounded-2xl p-4 mb-6 border border-white/10 text-sm text-gray-400">
-            No AI provider key is configured on the server, so the Forge is using its built-in prompt-driven synth.
-            Set <code className="text-violet-300">ANTHROPIC_API_KEY</code> or <code className="text-violet-300">OPENAI_API_KEY</code> to enable real AI generation.
+            No Claude or OpenAI key is available, so the Forge is using its built-in prompt-driven synth.{" "}
+            <a href="/account" className="text-violet-300 underline">Add your own API key in Settings</a> to enable real AI generation.
           </div>
         )}
 
@@ -360,6 +362,7 @@ export default function AIForgePage() {
                         {g.source === "ai" ? (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-200 border border-violet-400/20">
                             {PROVIDER_LABELS[g.provider || ""] || g.provider} · {g.model}
+                            {g.keySource === "user" ? " · your key" : g.keySource === "server" ? " · shared key" : ""}
                           </span>
                         ) : (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-gray-400 border border-white/10">
@@ -381,7 +384,7 @@ export default function AIForgePage() {
         </div>
 
         <p className="text-xs text-gray-500 text-center mt-8">
-          Only your text prompt is sent to the AI. The audio itself is synthesized on-device from the AI's patch — no audio leaves your browser.
+          Only your text prompt is sent to the AI. The audio itself is synthesized on-device from the AI&rsquo;s patch — no audio leaves your browser.
         </p>
       </div>
     </main>

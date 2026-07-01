@@ -19,6 +19,13 @@ model User {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   VerificationToken VerificationToken[]
+
+  // Bring-your-own AI provider keys for the AI Forge. Stored encrypted
+  // (see lib/crypto.ts) — only the last 4 chars are ever returned to the client.
+  anthropicKeyEnc   String?
+  anthropicKeyLast4 String?
+  openaiKeyEnc      String?
+  openaiKeyLast4    String?
 }
 
 model VerificationToken {
